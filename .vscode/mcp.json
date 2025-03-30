@@ -1,0 +1,8 @@
+{
+    "servers": {
+            "azd-template-helper": {
+                "command": "node",
+                "args": ["${workspaceFolder}/dist/index.js"]
+            }
+    }
+}

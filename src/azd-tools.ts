@@ -49,7 +49,7 @@ async function validateReadmeContent(readmePath: string): Promise<{
 }> {
     try {
         const content = await fs.promises.readFile(readmePath, 'utf8');
-        
+
         // Check required sections
         const missingSections = REQUIRED_README_SECTIONS.filter(section => {
             const sectionRegex = new RegExp(`##\\s+${section}`, 'i');
@@ -96,7 +96,7 @@ async function validateReadmeContent(readmePath: string): Promise<{
 async function validateDevContainer(templatePath: string): Promise<string[]> {
     const warnings: string[] = [];
     const devContainerPath = path.join(templatePath, '.devcontainer');
-    
+
     if (await pathExists(templatePath, '.devcontainer')) {
         const devContainerJsonPath = path.join(devContainerPath, 'devcontainer.json');
         if (!await pathExists(devContainerPath, 'devcontainer.json')) {
@@ -124,22 +124,22 @@ async function validateDevContainer(templatePath: string): Promise<string[]> {
 async function validateGitHubWorkflows(templatePath: string): Promise<string[]> {
     const warnings: string[] = [];
     const workflowsPath = path.join(templatePath, '.github', 'workflows');
-    
+
     if (await pathExists(templatePath, '.github/workflows')) {
         const files = await fs.promises.readdir(workflowsPath);
-        const hasValidation = files.some(f => 
-            f.toLowerCase().includes('validate') || 
+        const hasValidation = files.some(f =>
+            f.toLowerCase().includes('validate') ||
             f.toLowerCase().includes('test'));
-            
+
         if (!hasValidation) {
             warnings.push('Add GitHub workflow for template validation and testing');
         }
 
         // Check for security scanning workflow
-        const hasSecurityScan = files.some(f => 
-            f.toLowerCase().includes('security') || 
+        const hasSecurityScan = files.some(f =>
+            f.toLowerCase().includes('security') ||
             f.toLowerCase().includes('scan'));
-            
+
         if (!hasSecurityScan) {
             warnings.push('Add security scanning workflow using microsoft/security-devops-action');
         }
@@ -189,11 +189,11 @@ async function validateReadmeSections(readmePath: string): Promise<string[]> {
 async function validateInfra(templatePath: string, parsedYaml: any): Promise<string[]> {
     const warnings: string[] = [];
     const infraPath = path.join(templatePath, 'infra');
-    
+
     if (await pathExists(templatePath, 'infra')) {
         const provider = parsedYaml?.infra?.provider || 'bicep';
         const hasProviderFiles = await pathExists(infraPath, provider === 'bicep' ? 'main.bicep' : 'main.tf');
-        
+
         if (!hasProviderFiles) {
             warnings.push(`No ${provider} files found in infra directory`);
         }
@@ -234,7 +234,7 @@ const azureYamlSchema = z.object({
         module: z.string().optional()
     }).optional(),
     services: z.record(z.string(), azureServiceSchema).optional(),
-    workflows: z.record(z.string(), 
+    workflows: z.record(z.string(),
         z.union([
             z.object({
                 steps: z.array(azureWorkflowStepSchema).min(1)
@@ -263,6 +263,47 @@ export async function listTemplates() {
 
     try {
         const result = execSync('azd template list', { encoding: 'utf8' });
+        return { templates: result };
+    } catch (error) {
+        return { error: `Failed to list templates: ${error}` };
+    }
+}
+
+// Function to search templates 
+export async function searchTemplatesFromAiGallery(query: string) {
+    try {
+        const searchUrl = `https://lp6qsotirqelc-function-app.azurewebsites.net/api/ai-apps-search?search=`;
+        const encodedQuery = encodeURIComponent(query);
+        console.log(`Searching templates with query: ${encodedQuery} from ${searchUrl}`);
+        const response = await fetch(`${searchUrl}${encodedQuery}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const body = await response.text();
+        const parsedBody = JSON.parse(body).slice(0, 3);
+        const templates = parsedBody.map((item: any) => {
+            return {
+                score: item.rerankerScore,
+                title: item.document.title,
+                description: item.document.description,
+                source: item.document.source
+            };
+        });
+
+        return { templates: JSON.stringify(templates) };
+    }
+    catch (error) {
+        return { error: `Failed to search templates: ${error}` };
+    }
+}
+
+export async function searchTemplatedFromAzd(query: string) {
+    if (!checkAzdInstalled()) {
+        return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
+    }
+
+    try {
+        const result = execSync(`azd template list -f ${query}`, { encoding: 'utf8' });
         return { templates: result };
     } catch (error) {
         return { error: `Failed to list templates: ${error}` };
@@ -349,7 +390,7 @@ export async function validateTemplate(templatePath?: string) {
         if (fs.existsSync(readmePath)) {
             validationResults.hasReadme = true;
             const readmeValidation = await validateReadmeContent(readmePath);
-            
+
             if (readmeValidation.missingSections.length > 0) {
                 validationResults.readmeIssues.push(`Missing required sections: ${readmeValidation.missingSections.join(', ')}`);
             }
@@ -368,7 +409,7 @@ export async function validateTemplate(templatePath?: string) {
             validationResults.hasAzureYaml = true;
             const yamlContent = fs.readFileSync(azdYamlPath, 'utf8');
             const parsedYaml = yaml.parse(yamlContent);
-            
+
             try {
                 azureYamlSchema.parse(parsedYaml);
             } catch (e) {
@@ -408,7 +449,7 @@ export async function createTemplate(params: {
     try {
         const { name, language, architecture } = params;
         const outputPath = params.outputPath || path.join(getCurrentWorkspace(), name);
-        const templateConfig = templateStructures[architecture as keyof typeof templateStructures] 
+        const templateConfig = templateStructures[architecture as keyof typeof templateStructures]
             || templateStructures.web;
 
         // Create directory structure
@@ -444,7 +485,7 @@ const templateStructures = {
     web: {
         dirs: ['infra', 'src', '.devcontainer', '.github/workflows'],
         files: {
-            'azure.yaml': (name: string, language: string, architecture: string) => 
+            'azure.yaml': (name: string, language: string, architecture: string) =>
                 yaml.stringify({
                     name: name,
                     metadata: {
@@ -476,7 +517,7 @@ const templateStructures = {
     api: {
         dirs: ['infra', 'src', '.devcontainer', '.github/workflows', 'tests'],
         files: {
-            'azure.yaml': (name: string, language: string, architecture: string) => 
+            'azure.yaml': (name: string, language: string, architecture: string) =>
                 yaml.stringify({
                     name: name,
                     metadata: {
@@ -508,7 +549,7 @@ const templateStructures = {
     function: {
         dirs: ['infra', 'src', '.devcontainer', '.github/workflows', 'tests'],
         files: {
-            'azure.yaml': (name: string, language: string, architecture: string) => 
+            'azure.yaml': (name: string, language: string, architecture: string) =>
                 yaml.stringify({
                     name: name,
                     metadata: {
@@ -540,7 +581,7 @@ const templateStructures = {
     container: {
         dirs: ['infra', 'src', '.devcontainer', '.github/workflows', 'tests'],
         files: {
-            'azure.yaml': (name: string, language: string, architecture: string) => 
+            'azure.yaml': (name: string, language: string, architecture: string) =>
                 yaml.stringify({
                     name: name,
                     metadata: {
@@ -573,7 +614,7 @@ const templateStructures = {
     other: {
         dirs: ['infra', 'src', '.devcontainer', '.github/workflows'],
         files: {
-            'azure.yaml': (name: string, language: string, architecture: string) => 
+            'azure.yaml': (name: string, language: string, architecture: string) =>
                 yaml.stringify({
                     name: name,
                     metadata: {
@@ -903,7 +944,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 async function createLanguageSpecificFiles(outputPath: string, language: string, architecture: string): Promise<void> {
     const srcPath = path.join(outputPath, 'src');
-    
+
     switch (language) {
         case 'typescript':
             await fs.promises.writeFile(

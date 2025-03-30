@@ -1,10 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { 
-    listTemplates, 
-    analyzeTemplate, 
+import {
+    listTemplates,
+    analyzeTemplate,
     validateTemplate,
-    createTemplate
+    createTemplate,
+    searchTemplatesFromAiGallery,
+    searchTemplatedFromAzd
 } from "./azd-tools.js";
 import { z } from "zod";
 
@@ -76,9 +78,9 @@ server.tool(
 ${result.configFile}
 \`\`\`
 
-${result.recommendations.length > 0 
-    ? `## Recommendations\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
-    : '## Status\n✓ Template structure looks good!'}`
+${result.recommendations.length > 0
+                            ? `## Recommendations\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
+                            : '## Status\n✓ Template structure looks good!'}`
                 }
             ]
         };
@@ -112,10 +114,10 @@ server.tool(
         }
 
         // Documentation Check
-        const docStatus = result.readmeIssues.length === 0 
+        const docStatus = result.readmeIssues.length === 0
             ? ['✓ Documentation meets all requirements']
             : result.readmeIssues;
-        sections.push(formatValidationSection('Documentation Check', docStatus, 
+        sections.push(formatValidationSection('Documentation Check', docStatus,
             result.readmeIssues.length === 0 ? '✓' : '⚠'));
 
         // Infrastructure Check
@@ -152,18 +154,18 @@ server.tool(
         }
 
         // Overall Status
-        const totalIssues = result.errors.length + 
-            result.readmeIssues.length + 
-            result.infraChecks.length + 
-            result.securityChecks.length + 
-            result.devContainerChecks.length + 
+        const totalIssues = result.errors.length +
+            result.readmeIssues.length +
+            result.infraChecks.length +
+            result.securityChecks.length +
+            result.devContainerChecks.length +
             result.workflowChecks.length;
 
         const statusIcon = totalIssues === 0 ? '✅' : (result.errors.length > 0 ? '❌' : '⚠');
         sections.push(`\n## Overall Status ${statusIcon}
-${totalIssues === 0 
-    ? '✨ Template validation passed all checks successfully!'
-    : `Template needs attention:
+${totalIssues === 0
+                ? '✨ Template validation passed all checks successfully!'
+                : `Template needs attention:
 • ${result.errors.length} critical issues
 • ${totalIssues - result.errors.length} recommendations/warnings
 `}`);
@@ -190,7 +192,7 @@ server.tool(
     },
     async ({ name, language, architecture, outputPath }) => {
         const result = await createTemplate({ name, language, architecture, outputPath });
-        
+
         if (!result.success) {
             return {
                 content: [
@@ -242,11 +244,51 @@ For more details, check the README.md in your new template directory.`
     }
 );
 
+server.tool(
+    "search-from-ai-gallery",
+    "Search templates from ai gallery with prompt.",
+    {
+        keywords: z.string().describe('Keywords to search for in template names or descriptions')
+    },
+    async ({ keywords }) => {
+        console.info(`Searching templates with keywords: ${keywords} from AI Gallery`);
+        const result = await searchTemplatesFromAiGallery(keywords);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: result.error ?? result.templates
+                }
+            ]
+        };
+    }
+);
+
+server.tool(
+    "search-templates",
+    "Search all available Azure Developer CLI (azd) templates with keywords.",
+    {
+        keywords: z.string().describe('Keywords to search for in template names')
+    },
+    async ({ keywords }) => {
+        console.info(`Searching templates with keywords: ${keywords} with Azd`);
+        const result = await searchTemplatedFromAzd(keywords);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: result.error ?? result.templates
+                }
+            ]
+        };
+    }
+);
+
 // Initialize and start the server
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("AZD Template Helper MCP Server running on stdio");
+    console.info("AZD Template Helper MCP Server running on stdio");
 }
 
 main().catch((error) => {
