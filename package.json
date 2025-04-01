@@ -1,6 +1,6 @@
 {
   "name": "mcp-azd-template",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "MCP server for Azure Developer CLI template operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/username/mcp-azd-template"
+    "url": "https://github.com/spboyer/mcp-azd-template"
   },
   "engines": {
     "node": ">=18"

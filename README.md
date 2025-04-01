@@ -86,6 +86,64 @@ const myServer = new McpServer({ /* your config */ });
 registerTools(myServer);
 ```
 
+## Example Prompts
+
+When using this MCP server with AI assistants like GitHub Copilot, you can use the following example prompts:
+
+### Template Analysis
+
+```
+Can you analyze my current Azure Developer CLI template and provide feedback?
+```
+
+```
+Review this azd template in my current directory and tell me what needs improvement.
+```
+
+### Template Validation
+
+```
+Validate this azd template against best practices.
+```
+
+```
+Check if my azd template follows Microsoft's recommended structure and security practices.
+```
+
+### Template Creation
+
+```
+Create a new Azure Function app template using TypeScript.
+```
+
+```
+I need a starter template for a containerized web app using Python. Can you create one?
+```
+
+```
+Help me scaffold an azd template for a .NET API with all the required files.
+```
+
+### Template Listing
+
+```
+Show me available azd templates I can use as references.
+```
+
+```
+What are the official Azure Developer CLI templates available?
+```
+
+### Troubleshooting
+
+```
+My azd template is missing documentation. What specific sections should I add?
+```
+
+```
+How do I fix the security warnings in my template's validation report?
+```
+
 ## Features
 
 The package provides the following tools:
