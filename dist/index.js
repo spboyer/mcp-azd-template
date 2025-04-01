@@ -18,7 +18,7 @@ Object.defineProperty(exports, "createTemplate", { enumerable: true, get: functi
 const createServer = () => {
     const server = new mcp_js_1.McpServer({
         name: "azd-template-helper",
-        version: "1.0.0",
+        version: "1.1.0",
         capabilities: {
             resources: {},
             tools: {},

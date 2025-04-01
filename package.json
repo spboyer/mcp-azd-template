@@ -1,6 +1,6 @@
 {
   "name": "mcp-azd-template",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for Azure Developer CLI template operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -50,5 +50,12 @@
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
     "zod": "^3.24.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "mcp": {
+    "displayName": "Azure Developer CLI Template Helper",
+    "description": "Tools for Azure Developer CLI (azd) template development and validation"
   }
 }

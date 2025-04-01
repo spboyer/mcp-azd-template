@@ -46,6 +46,24 @@ Add to your VS Code settings.json:
 }
 ```
 
+### Using with npx (No Installation Required)
+
+You can use the package directly with npx without installing it:
+
+```json
+"mcp": {
+  "servers": {
+    "azd-template-helper": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-azd-template@latest"
+      ]
+    }
+  }
+}
+```
+
 ### Programmatic Usage
 
 You can use the API programmatically in your JavaScript/TypeScript applications:
