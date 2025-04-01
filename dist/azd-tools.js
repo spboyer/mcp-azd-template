@@ -1,8 +1,49 @@
-import { z } from 'zod';
-import { execSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as yaml from 'yaml';
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateTemplateSchema = exports.analyzeTemplateSchema = exports.listTemplatesSchema = void 0;
+exports.getTemplateInfo = getTemplateInfo;
+exports.listTemplates = listTemplates;
+exports.analyzeTemplate = analyzeTemplate;
+exports.validateTemplate = validateTemplate;
+exports.createTemplate = createTemplate;
+const zod_1 = require("zod");
+const child_process_1 = require("child_process");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+const yaml = __importStar(require("yaml"));
 // Required files and sections based on official azd template requirements
 const REQUIRED_FILES = [
     'README.md',
@@ -128,7 +169,7 @@ async function validateGitHubWorkflows(templatePath) {
 // Utility function to check if azd CLI is installed
 function checkAzdInstalled() {
     try {
-        execSync('azd version', { stdio: 'ignore' });
+        (0, child_process_1.execSync)('azd version', { stdio: 'ignore' });
         return true;
     }
     catch {
@@ -136,7 +177,7 @@ function checkAzdInstalled() {
     }
 }
 // Function to get template info
-export async function getTemplateInfo(templatePath) {
+async function getTemplateInfo(templatePath) {
     try {
         const azdYamlPath = path.join(templatePath, 'azure.yaml');
         if (!fs.existsSync(azdYamlPath)) {
@@ -181,53 +222,53 @@ async function validateInfra(templatePath, parsedYaml) {
     return warnings;
 }
 // Azure.yaml schema validation
-const azureWorkflowStepSchema = z.object({
-    type: z.string().optional(),
-    handler: z.string().optional(),
-    args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    env: z.record(z.string(), z.string()).optional()
+const azureWorkflowStepSchema = zod_1.z.object({
+    type: zod_1.z.string().optional(),
+    handler: zod_1.z.string().optional(),
+    args: zod_1.z.record(zod_1.z.string(), zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean()])).optional(),
+    env: zod_1.z.record(zod_1.z.string(), zod_1.z.string()).optional()
 });
-const azureServiceSchema = z.object({
-    project: z.string().optional(),
-    language: z.string().optional(),
-    host: z.string().optional(),
-    docker: z.boolean().optional(),
-    path: z.string().optional()
+const azureServiceSchema = zod_1.z.object({
+    project: zod_1.z.string().optional(),
+    language: zod_1.z.string().optional(),
+    host: zod_1.z.string().optional(),
+    docker: zod_1.z.boolean().optional(),
+    path: zod_1.z.string().optional()
 });
-const azureYamlSchema = z.object({
-    name: z.string().min(2),
-    resourceGroup: z.string().min(3).max(64).optional(),
-    metadata: z.object({
-        template: z.string().optional()
+const azureYamlSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2),
+    resourceGroup: zod_1.z.string().min(3).max(64).optional(),
+    metadata: zod_1.z.object({
+        template: zod_1.z.string().optional()
     }).optional(),
-    infra: z.object({
-        provider: z.enum(['bicep', 'terraform']).optional(),
-        path: z.string().optional(),
-        module: z.string().optional()
+    infra: zod_1.z.object({
+        provider: zod_1.z.enum(['bicep', 'terraform']).optional(),
+        path: zod_1.z.string().optional(),
+        module: zod_1.z.string().optional()
     }).optional(),
-    services: z.record(z.string(), azureServiceSchema).optional(),
-    workflows: z.record(z.string(), z.union([
-        z.object({
-            steps: z.array(azureWorkflowStepSchema).min(1)
+    services: zod_1.z.record(zod_1.z.string(), azureServiceSchema).optional(),
+    workflows: zod_1.z.record(zod_1.z.string(), zod_1.z.union([
+        zod_1.z.object({
+            steps: zod_1.z.array(azureWorkflowStepSchema).min(1)
         }),
-        z.array(azureWorkflowStepSchema)
+        zod_1.z.array(azureWorkflowStepSchema)
     ])).optional()
 });
 // Schema definitions for our tools - using proper Zod schema types
-export const listTemplatesSchema = z.object({});
-export const analyzeTemplateSchema = z.object({
-    templatePath: z.string().describe('Path to the azd template directory')
+exports.listTemplatesSchema = zod_1.z.object({});
+exports.analyzeTemplateSchema = zod_1.z.object({
+    templatePath: zod_1.z.string().describe('Path to the azd template directory')
 });
-export const validateTemplateSchema = z.object({
-    templatePath: z.string().describe('Path to the azd template directory')
+exports.validateTemplateSchema = zod_1.z.object({
+    templatePath: zod_1.z.string().describe('Path to the azd template directory')
 });
 // Tool implementations
-export async function listTemplates() {
+async function listTemplates() {
     if (!checkAzdInstalled()) {
         return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
     }
     try {
-        const result = execSync('azd template list', { encoding: 'utf8' });
+        const result = (0, child_process_1.execSync)('azd template list', { encoding: 'utf8' });
         return { templates: result };
     }
     catch (error) {
@@ -239,7 +280,7 @@ function getCurrentWorkspace() {
     return process.cwd();
 }
 // Update analyze template to use current workspace if no path provided
-export async function analyzeTemplate(templatePath) {
+async function analyzeTemplate(templatePath) {
     const actualPath = templatePath || getCurrentWorkspace();
     const templateInfo = await getTemplateInfo(actualPath);
     if (!templateInfo) {
@@ -268,7 +309,7 @@ export async function analyzeTemplate(templatePath) {
     }
 }
 // Update validate template to use current workspace if no path provided
-export async function validateTemplate(templatePath) {
+async function validateTemplate(templatePath) {
     if (!checkAzdInstalled()) {
         return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
     }
@@ -328,7 +369,7 @@ export async function validateTemplate(templatePath) {
                 azureYamlSchema.parse(parsedYaml);
             }
             catch (e) {
-                if (e instanceof z.ZodError) {
+                if (e instanceof zod_1.z.ZodError) {
                     e.errors.forEach(err => {
                         validationResults.errors.push(`Schema validation error at ${err.path.join('.')}: ${err.message}`);
                     });
@@ -351,7 +392,7 @@ export async function validateTemplate(templatePath) {
     }
 }
 // Update create template to use current workspace if no path provided
-export async function createTemplate(params) {
+async function createTemplate(params) {
     try {
         const { name, language, architecture } = params;
         const outputPath = params.outputPath || path.join(getCurrentWorkspace(), name);
@@ -904,3 +945,4 @@ function getLanguageExtensions(language) {
             return [];
     }
 }
+//# sourceMappingURL=azd-tools.js.map
