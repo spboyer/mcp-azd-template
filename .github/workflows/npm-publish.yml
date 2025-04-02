@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +19,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Update CHANGELOG.md
+        run: |
+          # Extract version from tag (remove 'v' prefix if present)
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION=${VERSION#v}
+          TODAY=$(date +"%Y-%m-%d")
+          
+          # Get release body
+          RELEASE_BODY="${{ github.event.release.body }}"
+          
+          # Create new changelog entry
+          CHANGELOG_ENTRY=$(cat << EOF
+
+          ## [$VERSION] - $TODAY
+
+          $RELEASE_BODY
+          EOF
+          )
+          
+          # Add new entry after the header section of CHANGELOG.md
+          sed -i '5s/^/'"$CHANGELOG_ENTRY"'\n/' CHANGELOG.md
+      
       - name: Build
         run: npm run build
       
@@ -24,3 +48,13 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+      
+      - name: Commit CHANGELOG.md update
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG.md for release ${{ github.event.release.tag_name }}" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
