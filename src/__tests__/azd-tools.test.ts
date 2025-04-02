@@ -94,8 +94,11 @@ describe('analyzeTemplate', () => {
     (fs.existsSync as jest.Mock).mockReturnValueOnce(false);
     
     const result = await analyzeTemplate('/test/path');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toBe('Invalid template directory or missing azure.yaml file');
+    // Use type assertion for TypeScript's type checking
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toBe('Invalid template directory or missing azure.yaml file');
+    }
   });
 
   test('should analyze template structure correctly', async () => {
@@ -103,13 +106,13 @@ describe('analyzeTemplate', () => {
     
     const result = await analyzeTemplate('/test/path');
     
-    // Type guard to check if result is an analysis result and not an error
+    // Use type assertion for TypeScript's type checking
+    expect('error' in result).toBe(false);
     if (!('error' in result)) {
-      expect(result).toHaveProperty('hasInfra', true);
-      expect(result).toHaveProperty('hasApp', true);
-      expect(result).toHaveProperty('configFile', 'name: test-template');
-    } else {
-      fail('Expected analysis result but got error');
+      expect(result.hasInfra).toBe(true);
+      expect(result.hasApp).toBe(true);
+      expect(result.configFile).toBe('name: test-template');
+      expect(Array.isArray(result.recommendations)).toBe(true);
     }
   });
 
@@ -119,8 +122,11 @@ describe('analyzeTemplate', () => {
     });
 
     const result = await analyzeTemplate('/test/path');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Failed to analyze template');
+    // Use type assertion for TypeScript's type checking
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toContain('Failed to analyze template');
+    }
   });
 });
 
@@ -144,10 +150,9 @@ describe('validateTemplate', () => {
     const result = await validateTemplate('/test/path');
     
     // Type guard for proper error handling
+    expect('error' in result).toBe(true);
     if ('error' in result) {
       expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
-    } else {
-      fail('Expected error result but got validation result');
     }
   });
 
@@ -156,10 +161,9 @@ describe('validateTemplate', () => {
     
     const result = await validateTemplate('/test/path');
     
+    expect('error' in result).toBe(true);
     if ('error' in result) {
       expect(result.error).toBe('Template directory does not exist');
-    } else {
-      fail('Expected error result but got validation result');
     }
   });
 
@@ -180,11 +184,10 @@ describe('validateTemplate', () => {
     
     const result = await validateTemplate('/test/path');
     
-    if ('error' in result) {
-      fail(`Expected validation result but got error: ${result.error}`);
-    } else {
-      expect(result).toHaveProperty('hasAzureYaml', true);
-      expect(result).toHaveProperty('hasReadme', true);
+    expect('error' in result).toBe(false);
+    if (!('error' in result)) {
+      expect(result.hasAzureYaml).toBe(true);
+      expect(result.hasReadme).toBe(true);
       expect(Array.isArray(result.errors)).toBe(true);
     }
   });

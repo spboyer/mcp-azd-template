@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -21,8 +23,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      # Only run lint if script exists, otherwise suggest adding it
+      - name: Check if lint script exists
+        id: check_lint
+        run: |
+          if grep -q "\"lint\":" package.json; then
+            echo "HAS_LINT=true" >> $GITHUB_OUTPUT
+          else
+            echo "HAS_LINT=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Lint code
-        run: npm run lint || echo "Linting not configured. Consider adding eslint to your project."
+        if: steps.check_lint.outputs.HAS_LINT == 'true'
+        run: npm run lint
+        
+      - name: Suggest adding linting
+        if: steps.check_lint.outputs.HAS_LINT == 'false'
+        run: echo "Consider adding ESLint to your project with a 'lint' script in package.json for better code quality"
       
       - name: Build
         run: npm run build
