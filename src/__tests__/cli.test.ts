@@ -1,7 +1,7 @@
-import * as indexModule from '../index';
+import * as indexModule from '../index.js';
 
 // Mock the main function from index.ts
-jest.mock('../index', () => ({
+jest.mock('../index.js', () => ({
   main: jest.fn().mockImplementation(() => Promise.resolve()),
 }));
 
@@ -35,7 +35,7 @@ describe('CLI Module', () => {
     });
 
     // Import the module which should trigger the main function call
-    await import('../cli');
+    await import('../cli.js');
     
     // Verify main was called
     expect(indexModule.main).toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe('CLI Module', () => {
     
     // Import the module which should trigger the error handler
     try {
-      await import('../cli');
+      await import('../cli.js');
     } catch (error) {
       // Expected error from process.exit
     }
