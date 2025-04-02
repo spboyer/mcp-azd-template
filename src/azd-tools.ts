@@ -218,12 +218,19 @@ async function validateAzdTags(templatePath: string, parsedYaml: any): Promise<s
                     'containerapp': 'Microsoft.App/containerApps'
                 };
                 
-                const expectedResource = expectedResources[serviceHost];
+                // Type guard to ensure serviceHost is a valid key
+                type ServiceHostType = keyof typeof expectedResources;
+                const isValidServiceHost = (host: string): host is ServiceHostType => 
+                    Object.keys(expectedResources).includes(host);
                 
-                if (expectedResource && content.includes(expectedResource) && 
-                    !content.includes(`azd-service-name': '${serviceName}'`) && 
-                    !content.includes(`azd-service-name": "${serviceName}"`)) {
-                    warnings.push(`${path.basename(file)}: Service '${serviceName}' is defined in azure.yaml with host type '${serviceHost}', but no resource with tag 'azd-service-name: ${serviceName}' was found`);
+                if (serviceHost && isValidServiceHost(serviceHost)) {
+                    const expectedResource = expectedResources[serviceHost];
+                    
+                    if (expectedResource && content.includes(expectedResource) && 
+                        !content.includes(`azd-service-name': '${serviceName}'`) && 
+                        !content.includes(`azd-service-name": "${serviceName}"`)) {
+                        warnings.push(`${path.basename(file)}: Service '${serviceName}' is defined in azure.yaml with host type '${serviceHost}', but no resource with tag 'azd-service-name: ${serviceName}' was found`);
+                    }
                 }
             }
         }
