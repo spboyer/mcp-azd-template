@@ -16,8 +16,8 @@ describe('CLI Module', () => {
     // Mock console.error to capture output
     jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    // Mock process.exit with proper type casting
-    jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
+    // Mock process.exit with correct parameter types
+    jest.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
       throw new Error(`Process exit with code: ${code}`);
     }) as unknown as jest.Mock;
   });
