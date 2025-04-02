@@ -7,7 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
  * Simple test script that creates an MCP server instance
  * Run this with `node dist/test.js` after building to verify the package works
  */
-async function test() {
+async function testServerCreation() {
   try {
     console.log('Creating MCP server instance...');
     const server = createServer();
@@ -28,7 +28,7 @@ describe('MCP Server Test Script', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     
     // Call the test function
-    const result = await test();
+    const result = await testServerCreation();
     
     // Verify the test succeeded
     expect(result).toBe(0);
@@ -46,5 +46,5 @@ describe('MCP Server Test Script', () => {
 
 // Only run the test function when executed directly (not during Jest testing)
 if (require.main === module) {
-  test().then(exitCode => process.exit(exitCode));
+  testServerCreation().then(exitCode => process.exit(exitCode));
 }
