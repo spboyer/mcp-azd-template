@@ -1,7 +1,7 @@
-import * as indexModule from '../index';
+import * as indexModule from '../index.js';
 
 // Mock the main function from index.ts
-jest.mock('../index', () => ({
+jest.mock('../index.js', () => ({
   main: jest.fn().mockImplementation(() => Promise.resolve()),
 }));
 
@@ -16,16 +16,16 @@ describe('CLI Module', () => {
     // Mock console.error to capture output
     jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    // Mock process.exit
-    jest.spyOn(process, 'exit').mockImplementation((code) => {
+    // Mock process.exit with proper type casting
+    jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
       throw new Error(`Process exit with code: ${code}`);
-    });
+    }) as unknown as jest.Mock;
   });
 
   afterEach(() => {
     // Restore mocks
     (console.error as jest.Mock).mockRestore();
-    (process.exit as jest.Mock).mockRestore();
+    jest.spyOn(process, 'exit').mockRestore();
   });
 
   test('CLI should call main function when executed directly', async () => {
@@ -35,7 +35,7 @@ describe('CLI Module', () => {
     });
 
     // Import the module which should trigger the main function call
-    await import('../cli');
+    await import('../cli.js');
     
     // Verify main was called
     expect(indexModule.main).toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe('CLI Module', () => {
     
     // Import the module which should trigger the error handler
     try {
-      await import('../cli');
+      await import('../cli.js');
     } catch (error) {
       // Expected error from process.exit
     }
