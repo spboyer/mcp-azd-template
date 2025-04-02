@@ -73,7 +73,7 @@ export function registerTools(server: McpServer): void {
             
             let responseText: string;
             if ('error' in result) {
-                responseText = result.error;
+                responseText = result.error ?? 'An unknown error occurred';
             } else if (result.count === 0) {
                 responseText = `No templates found matching: '${query}'`;
             } else {
@@ -102,7 +102,7 @@ export function registerTools(server: McpServer): void {
             
             let responseText: string;
             if ('error' in result) {
-                responseText = result.error;
+                responseText = result.error ?? 'An unknown error occurred';
             } else if (result.count === 0) {
                 responseText = `No AI gallery templates found matching: '${query}'`;
             } else {
