@@ -1,7 +1,7 @@
-import * as indexModule from '../index.js';
+import * as indexModule from '../index';
 
 // Mock the main function from index.ts
-jest.mock('../index.js', () => ({
+jest.mock('../index', () => ({
   main: jest.fn().mockImplementation(() => Promise.resolve()),
 }));
 
@@ -34,8 +34,8 @@ describe('CLI Module', () => {
       value: module,
     });
 
-    // Import the module which should trigger the main function call
-    await import('../cli.js');
+    // Import the module which should trigger the main function call using a mock require instead of ESM import
+    const cliModule = require('../cli');
     
     // Verify main was called
     expect(indexModule.main).toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe('CLI Module', () => {
     
     // Import the module which should trigger the error handler
     try {
-      await import('../cli.js');
+      const cliModule = require('../cli');
     } catch (error) {
       // Expected error from process.exit
     }
