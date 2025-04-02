@@ -378,7 +378,7 @@ export async function listTemplates() {
 // Function to search templates from Azure Developer CLI
 export async function searchTemplates(query: string) {
     if (!checkAzdInstalled()) {
-        return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
+        return { error: 'Failed to search templates: Azure Developer CLI (azd) is not installed.' };
     }
 
     try {

@@ -108,8 +108,15 @@ describe('MCP Server Creation', () => {
     
     registerTools(mockServer);
     
-    // There are four distinct tools that should be registered
-    const expectedTools = ['list-templates', 'analyze-template', 'validate-template', 'create-template'];
+    // There are six distinct tools that should be registered
+    const expectedTools = [
+      'list-templates', 
+      'search-templates',
+      'search-ai-gallery',
+      'analyze-template', 
+      'validate-template', 
+      'create-template'
+    ];
     
     // Verify each tool was registered
     expectedTools.forEach(toolName => {

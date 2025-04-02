@@ -90,6 +90,32 @@ registerTools(myServer);
 
 When using this MCP server with AI assistants like GitHub Copilot, you can use the following example prompts:
 
+### Template Search
+
+```
+Search for Java Spring Boot templates in the Azure AI gallery
+```
+
+```
+Find Next.js starter templates from both the AI gallery and azd CLI
+```
+
+```
+Look for container-based microservices templates with Go support
+```
+
+```
+Search for Azure Functions templates with Python and OpenAI integration
+```
+
+```
+Find templates that use Azure Container Apps and Kubernetes
+```
+
+```
+Search for templates with CI/CD pipeline examples
+```
+
 ### Template Analysis
 
 ```
@@ -148,18 +174,26 @@ How do I fix the security warnings in my template's validation report?
 
 The package provides the following tools:
 
-### 1. List Templates
+### 1. Search Templates
+
+Search Azure Developer CLI (azd) templates and Azure AI gallery:
+- Search local azd CLI templates
+- Search Azure AI gallery templates
+- Filter by language, architecture, or keywords
+- Get detailed template information
+
+### 2. List Templates
 
 Lists all available Azure Developer CLI (azd) templates.
 
-### 2. Analyze Template
+### 3. Analyze Template
 
 Analyzes an Azure Developer CLI (azd) template directory and provides insights:
 - Structure validation
 - Configuration analysis
 - Best practice recommendations
 
-### 3. Validate Template
+### 4. Validate Template
 
 Performs a comprehensive validation of an azd template with detailed checks for:
 - Documentation completeness
@@ -168,7 +202,7 @@ Performs a comprehensive validation of an azd template with detailed checks for:
 - Development environment setup
 - GitHub workflow configuration
 
-### 4. Create Template
+### 5. Create Template
 
 Creates a new Azure Developer CLI template with best practices built-in:
 - Supports multiple languages (TypeScript, Python, Java, .NET)

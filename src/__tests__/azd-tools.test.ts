@@ -421,7 +421,7 @@ describe('searchTemplates', () => {
   });
 
   test('should return matching templates when azd is installed', async () => {
-    const mockOutput = 'webapp-starter\nnode-app\nweb-api-template\nother-template';
+    const mockOutput = 'webapp-starter\nweb-api-template\nweb-function\nother-template';
     (execSync as jest.Mock).mockReturnValue(mockOutput);
 
     const result = await searchTemplates('web');
@@ -430,6 +430,7 @@ describe('searchTemplates', () => {
     expect(result.count).toBe(3); // Only the templates containing 'web'
     expect(result.templates).toContain('webapp-starter');
     expect(result.templates).toContain('web-api-template');
+    expect(result.templates).toContain('web-function');
     expect(result.templates).not.toContain('other-template');
   });
 
@@ -446,7 +447,7 @@ describe('searchTemplates', () => {
 
   test('should handle errors during execution', async () => {
     (execSync as jest.Mock).mockImplementation(() => {
-      throw new Error('Failed to execute command');
+      throw new Error('Some error occurred');
     });
 
     const result = await searchTemplates('web');
