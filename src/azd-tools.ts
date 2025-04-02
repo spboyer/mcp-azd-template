@@ -147,6 +147,93 @@ async function validateGitHubWorkflows(templatePath: string): Promise<string[]> 
     return warnings;
 }
 
+// Helper function to validate AZD service tags in bicep files
+async function validateAzdTags(templatePath: string, parsedYaml: any): Promise<string[]> {
+    const warnings: string[] = [];
+    const infraPath = path.join(templatePath, 'infra');
+    
+    if (!await pathExists(templatePath, 'infra')) {
+        return warnings;
+    }
+
+    try {
+        // Get all bicep files in the infra directory
+        const bicepFiles: string[] = [];
+        const collectBicepFiles = async (dir: string) => {
+            const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    await collectBicepFiles(fullPath);
+                } else if (entry.name.endsWith('.bicep')) {
+                    bicepFiles.push(fullPath);
+                }
+            }
+        };
+        
+        await collectBicepFiles(infraPath);
+        
+        // Get services defined in azure.yaml
+        const services = parsedYaml?.services || {};
+        const serviceNames = Object.keys(services);
+        
+        if (serviceNames.length === 0) {
+            warnings.push('No services defined in azure.yaml, but AZD requires service definitions for deployment');
+            return warnings;
+        }
+        
+        // Check each bicep file for proper tagging
+        for (const file of bicepFiles) {
+            const content = await fs.promises.readFile(file, 'utf8');
+            
+            // Only check files that define resources that might host services
+            const isResourceFile = 
+                content.includes('Microsoft.Web/sites') || 
+                content.includes('Microsoft.App/containerApps') ||
+                content.includes('Microsoft.Functions/functionApps');
+                
+            if (!isResourceFile) {
+                continue;
+            }
+            
+            // Check for tags section
+            if (!content.includes('tags:')) {
+                warnings.push(`${path.basename(file)}: Missing 'tags' property on resources that may host services`);
+                continue;
+            }
+            
+            // Check for 'azd-service-name' tag
+            if (!content.includes('azd-service-name')) {
+                warnings.push(`${path.basename(file)}: Missing required 'azd-service-name' tag for deployable resources`);
+                continue;
+            }
+            
+            // Look for service-specific tag issues
+            for (const serviceName of serviceNames) {
+                const serviceHost = services[serviceName]?.host || '';
+                
+                const expectedResources = {
+                    'appservice': 'Microsoft.Web/sites',
+                    'function': 'Microsoft.Functions/functionApps',
+                    'containerapp': 'Microsoft.App/containerApps'
+                };
+                
+                const expectedResource = expectedResources[serviceHost];
+                
+                if (expectedResource && content.includes(expectedResource) && 
+                    !content.includes(`azd-service-name': '${serviceName}'`) && 
+                    !content.includes(`azd-service-name": "${serviceName}"`)) {
+                    warnings.push(`${path.basename(file)}: Service '${serviceName}' is defined in azure.yaml with host type '${serviceHost}', but no resource with tag 'azd-service-name: ${serviceName}' was found`);
+                }
+            }
+        }
+    } catch (error) {
+        warnings.push(`Error validating AZD tags: ${error}`);
+    }
+    
+    return warnings;
+}
+
 // Utility function to check if azd CLI is installed
 function checkAzdInstalled(): boolean {
     try {
@@ -382,6 +469,10 @@ export async function validateTemplate(templatePath?: string) {
             // Validate infrastructure based on yaml configuration
             const infraWarnings = await validateInfra(actualPath, parsedYaml);
             validationResults.infraChecks.push(...infraWarnings);
+
+            // Validate AZD tags in bicep files
+            const azdTagWarnings = await validateAzdTags(actualPath, parsedYaml);
+            validationResults.infraChecks.push(...azdTagWarnings);
         }
 
         // Validate dev container configuration
@@ -772,20 +863,148 @@ jobs:
 }
 
 function createBicepTemplate(name: string, architecture: string): string {
+    // Get the service name based on architecture
+    let serviceName: string;
+    switch (architecture) {
+        case 'web':
+            serviceName = 'web';
+            break;
+        case 'api':
+            serviceName = 'api';
+            break;
+        case 'function':
+            serviceName = 'function';
+            break;
+        case 'container':
+            serviceName = 'app';
+            break;
+        default:
+            serviceName = 'app';
+    }
+
+    // Create a bicep template with proper AZD tags
     return `param location string = resourceGroup().location
 param environmentName string
 param resourceToken string = uniqueString(subscription().subscriptionId, resourceGroup().id)
+param tags object = {}
+
+// Merge supplied tags with required AZD tags
+var defaultTags = {
+  'azd-env-name': environmentName
+}
+var allTags = union(defaultTags, tags)
 
 // Add your Bicep template here based on the ${architecture} architecture
 resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
   name: 'plan-\${environmentName}-\${resourceToken}'
   location: location
+  tags: allTags
   sku: {
     name: 'B1'
   }
 }
 
-// Add more resources as needed for your ${architecture} application`;
+${architecture === 'function' ? 
+`// Function App with proper azd-service-name tag
+resource functionApp 'Microsoft.Web/sites@2022-03-01' = {
+  name: 'func-\${environmentName}-\${resourceToken}'
+  location: location
+  tags: union(allTags, { 'azd-service-name': '${serviceName}' })
+  kind: 'functionapp'
+  properties: {
+    serverFarmId: appServicePlan.id
+    httpsOnly: true
+    siteConfig: {
+      alwaysOn: true
+      ftpsState: 'Disabled'
+    }
+  }
+}
+
+output SERVICE_${serviceName.toUpperCase()}_NAME string = functionApp.name
+output SERVICE_${serviceName.toUpperCase()}_URI string = 'https://\${functionApp.properties.defaultHostName}'` 
+: architecture === 'container' ? 
+`// Container App with proper azd-service-name tag
+resource containerApp 'Microsoft.App/containerApps@2022-03-01' = {
+  name: 'ca-\${environmentName}-\${resourceToken}'
+  location: location
+  tags: union(allTags, { 'azd-service-name': '${serviceName}' })
+  properties: {
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 80
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: '${serviceName}'
+          image: '$\{DOCKER_REGISTRY_SERVER_URL}/$\{DOCKER_REGISTRY_SERVER_USERNAME}/${serviceName}:latest'
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 10
+      }
+    }
+  }
+}
+
+output SERVICE_${serviceName.toUpperCase()}_NAME string = containerApp.name
+output SERVICE_${serviceName.toUpperCase()}_URI string = containerApp.properties.configuration.ingress.fqdn` 
+: 
+`// App Service with proper azd-service-name tag
+resource webApp 'Microsoft.Web/sites@2022-03-01' = {
+  name: 'app-\${environmentName}-\${resourceToken}'
+  location: location
+  tags: union(allTags, { 'azd-service-name': '${serviceName}' })
+  properties: {
+    serverFarmId: appServicePlan.id
+    httpsOnly: true
+    siteConfig: {
+      alwaysOn: true
+      ftpsState: 'Disabled'
+      minTlsVersion: '1.2'
+    }
+  }
+}
+
+output SERVICE_${serviceName.toUpperCase()}_NAME string = webApp.name
+output SERVICE_${serviceName.toUpperCase()}_URI string = 'https://\${webApp.properties.defaultHostName}'`}
+
+// Key Vault with tags but not azd-service-name since it's not a deployable service target
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: 'kv-\${environmentName}-\${resourceToken}'
+  location: location
+  tags: allTags
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+  }
+}
+
+// Application Insights
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'appi-\${environmentName}-\${resourceToken}'
+  location: location
+  tags: allTags
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    Request_Source: 'rest'
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
+  }
+}`;
 }
 
 function createBicepParams(name: string): string {
