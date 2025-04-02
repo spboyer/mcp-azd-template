@@ -183,8 +183,9 @@ describe('analyzeTemplate', () => {
     
     await analyzeTemplate();
     
-    // Should have used the mocked cwd path
-    expect(fs.existsSync).toHaveBeenCalledWith(expect.stringContaining('/mock/workspace'));
+    // Should have used the mocked cwd path - using path.join for platform independence
+    const expectedPath = path.join('/mock/workspace', 'azure.yaml');
+    expect(fs.existsSync).toHaveBeenCalledWith(expectedPath);
   });
 });
 
@@ -397,7 +398,11 @@ describe('createTemplate', () => {
     
     await createTemplate(params);
     
-    // Should have created the directory in the mocked cwd
-    expect(fs.promises.mkdir).toHaveBeenCalledWith(expect.stringMatching(/\/mock\/workspace\/test-template/), expect.anything());
+    // Should have created the directory in the mocked cwd - using path.join for platform independence
+    const expectedPathPattern = path.join('/mock/workspace', 'test-template').replace(/\\/g, '\\\\');
+    expect(fs.promises.mkdir).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(expectedPathPattern)), 
+      expect.anything()
+    );
   });
 });
