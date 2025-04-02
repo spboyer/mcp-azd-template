@@ -17,6 +17,10 @@ const REQUIRED_FILES = [
     '.github/workflows'
 ];
 
+// Constants for gallery API
+const AI_GALLERY_API_URL = 'https://azuremarketplaceapi.azure.com/api/v1/';
+const AI_GALLERY_SEARCH_ENDPOINT = 'templates/search';
+
 const REQUIRED_README_SECTIONS = [
     'Features',
     'Getting Started',
@@ -341,6 +345,14 @@ const azureYamlSchema = z.object({
 // Schema definitions for our tools - using proper Zod schema types
 export const listTemplatesSchema = z.object({});
 
+export const searchTemplatesSchema = z.object({
+    query: z.string().describe('The query to search for templates with')
+});
+
+export const searchAiGallerySchema = z.object({
+    query: z.string().describe('The query to search for templates in the AI gallery')
+});
+
 export const analyzeTemplateSchema = z.object({
     templatePath: z.string().describe('Path to the azd template directory')
 });
@@ -360,6 +372,83 @@ export async function listTemplates() {
         return { templates: result };
     } catch (error) {
         return { error: `Failed to list templates: ${error}` };
+    }
+}
+
+// Function to search templates from Azure Developer CLI
+export async function searchTemplates(query: string) {
+    if (!checkAzdInstalled()) {
+        return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
+    }
+
+    try {
+        // Execute the azd template list command and filter the results based on the query
+        const result = execSync('azd template list', { encoding: 'utf8' });
+        
+        // Split the result by newlines and filter by the query
+        const templates = result
+            .split('\n')
+            .filter(line => line.toLowerCase().includes(query.toLowerCase()))
+            .join('\n');
+        
+        if (!templates.trim()) {
+            return { 
+                templates: `No templates found matching: '${query}'`,
+                count: 0
+            };
+        }
+        
+        return { 
+            templates,
+            count: templates.split('\n').filter(line => line.trim()).length
+        };
+    } catch (error) {
+        return { error: `Failed to search templates: ${error}` };
+    }
+}
+
+// Function to search templates from the AI gallery
+export async function searchAiGallery(query: string) {
+    try {
+        // Use native fetch API in Node.js to query the AI gallery
+        const searchUrl = new URL(AI_GALLERY_SEARCH_ENDPOINT, AI_GALLERY_API_URL);
+        searchUrl.searchParams.append('q', query);
+        
+        const response = await fetch(searchUrl.toString(), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            return { 
+                error: `Failed to search AI gallery: ${response.status} ${response.statusText}` 
+            };
+        }
+        
+        const data = await response.json();
+        
+        if (!data.items || data.items.length === 0) {
+            return { 
+                templates: `No templates found in AI gallery matching: '${query}'`,
+                count: 0
+            };
+        }
+        
+        // Format the results
+        const formattedTemplates = data.items.map((item: any) => 
+            `${item.name} (${item.version || 'latest'}) - ${item.description || 'No description'}`
+        ).join('\n');
+        
+        return { 
+            templates: formattedTemplates,
+            count: data.items.length,
+            source: 'ai-gallery'
+        };
+    } catch (error) {
+        return { error: `Failed to search AI gallery: ${error}` };
     }
 }
 

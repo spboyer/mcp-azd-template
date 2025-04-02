@@ -5,7 +5,9 @@ import {
   validateTemplate, 
   listTemplates, 
   createTemplate,
-  getTemplateInfo
+  getTemplateInfo,
+  searchTemplates,
+  searchAiGallery
 } from '../azd-tools';
 import { execSync } from 'child_process';
 import * as yaml from 'yaml';
@@ -404,5 +406,120 @@ describe('createTemplate', () => {
       expect.stringMatching(new RegExp(expectedPathPattern)), 
       expect.anything()
     );
+  });
+});
+
+describe('searchTemplates', () => {
+  test('should return error when azd is not installed', async () => {
+    (execSync as jest.Mock).mockImplementation(() => {
+      throw new Error('command not found');
+    });
+
+    const result = await searchTemplates('web');
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
+  });
+
+  test('should return matching templates when azd is installed', async () => {
+    const mockOutput = 'webapp-starter\nnode-app\nweb-api-template\nother-template';
+    (execSync as jest.Mock).mockReturnValue(mockOutput);
+
+    const result = await searchTemplates('web');
+    expect(result).toHaveProperty('templates');
+    expect(result).toHaveProperty('count');
+    expect(result.count).toBe(3); // Only the templates containing 'web'
+    expect(result.templates).toContain('webapp-starter');
+    expect(result.templates).toContain('web-api-template');
+    expect(result.templates).not.toContain('other-template');
+  });
+
+  test('should return no results message when no templates match', async () => {
+    const mockOutput = 'webapp-starter\nnode-app\nweb-api-template';
+    (execSync as jest.Mock).mockReturnValue(mockOutput);
+
+    const result = await searchTemplates('nonexistent');
+    expect(result).toHaveProperty('templates');
+    expect(result).toHaveProperty('count');
+    expect(result.count).toBe(0);
+    expect(result.templates).toContain('No templates found matching');
+  });
+
+  test('should handle errors during execution', async () => {
+    (execSync as jest.Mock).mockImplementation(() => {
+      throw new Error('Failed to execute command');
+    });
+
+    const result = await searchTemplates('web');
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Failed to search templates');
+  });
+});
+
+describe('searchAiGallery', () => {
+  // Mock global fetch API
+  const originalFetch = global.fetch;
+  
+  beforeEach(() => {
+    global.fetch = jest.fn();
+  });
+  
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('should handle successful API response with results', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        items: [
+          { name: 'web-template', version: '1.0', description: 'Web template' },
+          { name: 'api-template', version: '2.0', description: 'API template' }
+        ]
+      })
+    });
+
+    const result = await searchAiGallery('web');
+    expect(result).toHaveProperty('templates');
+    expect(result).toHaveProperty('count');
+    expect(result).toHaveProperty('source');
+    expect(result.source).toBe('ai-gallery');
+    expect(result.count).toBe(2);
+    expect(result.templates).toContain('web-template');
+    expect(result.templates).toContain('API template');
+  });
+
+  test('should handle empty results from API', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ items: [] })
+    });
+
+    const result = await searchAiGallery('nonexistent');
+    expect(result).toHaveProperty('templates');
+    expect(result).toHaveProperty('count');
+    expect(result.count).toBe(0);
+    expect(result.templates).toContain('No templates found in AI gallery');
+  });
+
+  test('should handle API error response', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found'
+    });
+
+    const result = await searchAiGallery('web');
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Failed to search AI gallery');
+    expect(result.error).toContain('404');
+  });
+
+  test('should handle network or other fetch errors', async () => {
+    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await searchAiGallery('web');
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Failed to search AI gallery');
+    expect(result.error).toContain('Network error');
   });
 });

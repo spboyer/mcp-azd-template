@@ -1,36 +1,25 @@
+import { createServer, formatValidationSection, registerTools, main } from '../index';
+import { 
+  listTemplates, 
+  analyzeTemplate, 
+  validateTemplate, 
+  createTemplate,
+  searchTemplates,
+  searchAiGallery
+} from '../azd-tools';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  createServer,
-  formatValidationSection,
-  registerTools,
-  main
-} from '../index';
 
-// Mock the McpServer class following MCP server implementation practices
-jest.mock("@modelcontextprotocol/sdk/server/mcp.js", () => {
-  const mockTool = jest.fn();
-  const mockServer = {
-    tool: mockTool,
-    connect: jest.fn().mockResolvedValue(undefined),
-  };
-  return {
-    McpServer: jest.fn(() => mockServer),
-  };
-});
-
-// Mock the StdioServerTransport
-jest.mock("@modelcontextprotocol/sdk/server/stdio.js", () => {
-  return {
-    StdioServerTransport: jest.fn().mockImplementation(() => ({
-      // Mock methods as needed
-    })),
-  };
-});
-
-// Mock the azd-tools module with more comprehensive mock implementations
+// Mock azd-tools module
 jest.mock('../azd-tools', () => ({
-  listTemplates: jest.fn().mockImplementation(async () => {
-    return { templates: 'template1\ntemplate2\ntemplate3' };
+  listTemplates: jest.fn().mockResolvedValue({ templates: 'template1\ntemplate2\ntemplate3' }),
+  searchTemplates: jest.fn().mockResolvedValue({ 
+    templates: 'template1\ntemplate2', 
+    count: 2 
+  }),
+  searchAiGallery: jest.fn().mockResolvedValue({ 
+    templates: 'ai-template1\nai-template2', 
+    count: 2,
+    source: 'ai-gallery' 
   }),
   analyzeTemplate: jest.fn().mockImplementation(async (path) => {
     if (!path) {
@@ -64,8 +53,27 @@ jest.mock('../azd-tools', () => ({
       return { success: true, message: 'Template created successfully' };
     }
     return { success: false, message: 'Invalid parameters' };
-  }),
+  })
 }));
+
+// Mock the McpServer class following MCP server implementation practices
+jest.mock("@modelcontextprotocol/sdk/server/mcp.js", () => {
+  const mockTool = jest.fn();
+  const mockServer = {
+    tool: mockTool,
+    connect: jest.fn().mockResolvedValue(undefined),
+  };
+  return {
+    McpServer: jest.fn(() => mockServer),
+  };
+});
+
+// Mock the StdioServerTransport
+jest.mock("@modelcontextprotocol/sdk/server/stdio.js", () => {
+  return {
+    StdioServerTransport: jest.fn().mockImplementation(() => ({})),
+  };
+});
 
 // Mock console error to keep test output clean
 beforeEach(() => {
@@ -146,6 +154,119 @@ describe('Tool Handlers', () => {
     (mockServer.tool as jest.Mock).mock.calls.forEach((call) => {
       const [name, _desc, _schema, handler] = call;
       toolHandlers[name] = handler;
+    });
+  });
+  
+  test('search-templates handler should return formatted search results', async () => {
+    const handler = toolHandlers['search-templates'];
+    const result = await handler({ query: 'template' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('Templates matching \'template\'')
+        }
+      ]
+    });
+    expect(result.content[0].text).toContain('Found 2 templates');
+    expect(result.content[0].text).toContain('template1');
+    expect(result.content[0].text).toContain('template2');
+  });
+
+  test('search-templates handler should handle no results', async () => {
+    // Override the mock to return zero results for this test
+    (searchTemplates as jest.Mock).mockResolvedValueOnce({
+      templates: `No templates found matching: 'nonexistent'`,
+      count: 0
+    });
+    
+    const handler = toolHandlers['search-templates'];
+    const result = await handler({ query: 'nonexistent' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('No templates found matching')
+        }
+      ]
+    });
+  });
+
+  test('search-templates handler should handle errors', async () => {
+    // Override the mock to return an error for this test
+    (searchTemplates as jest.Mock).mockResolvedValueOnce({
+      error: 'Failed to search templates: Some error occurred'
+    });
+    
+    const handler = toolHandlers['search-templates'];
+    const result = await handler({ query: 'error-trigger' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: 'Failed to search templates: Some error occurred'
+        }
+      ]
+    });
+  });
+
+  test('search-ai-gallery handler should return formatted AI gallery search results', async () => {
+    const handler = toolHandlers['search-ai-gallery'];
+    const result = await handler({ query: 'ai-template' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('AI Gallery Templates matching \'ai-template\'')
+        }
+      ]
+    });
+    expect(result.content[0].text).toContain('Found 2 templates');
+    expect(result.content[0].text).toContain('ai-template1');
+    expect(result.content[0].text).toContain('ai-template2');
+  });
+
+  test('search-ai-gallery handler should handle no results', async () => {
+    // Override the mock to return zero results for this test
+    (searchAiGallery as jest.Mock).mockResolvedValueOnce({
+      templates: `No templates found in AI gallery matching: 'nonexistent'`,
+      count: 0,
+      source: 'ai-gallery'
+    });
+    
+    const handler = toolHandlers['search-ai-gallery'];
+    const result = await handler({ query: 'nonexistent' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('No AI gallery templates found matching')
+        }
+      ]
+    });
+  });
+
+  test('search-ai-gallery handler should handle errors', async () => {
+    // Override the mock to return an error for this test
+    (searchAiGallery as jest.Mock).mockResolvedValueOnce({
+      error: 'Failed to search AI gallery: API error'
+    });
+    
+    const handler = toolHandlers['search-ai-gallery'];
+    const result = await handler({ query: 'error-trigger' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: 'Failed to search AI gallery: API error'
+        }
+      ]
     });
   });
   

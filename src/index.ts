@@ -4,7 +4,9 @@ import {
     listTemplates, 
     analyzeTemplate, 
     validateTemplate,
-    createTemplate
+    createTemplate,
+    searchTemplates,
+    searchAiGallery
 } from "./azd-tools";
 import { z } from "zod";
 
@@ -13,7 +15,9 @@ export {
     listTemplates, 
     analyzeTemplate, 
     validateTemplate, 
-    createTemplate 
+    createTemplate,
+    searchTemplates,
+    searchAiGallery
 } from "./azd-tools";
 
 // Create MCP server instance
@@ -52,6 +56,64 @@ export function registerTools(server: McpServer): void {
                     {
                         type: "text",
                         text: result.error ?? result.templates
+                    }
+                ]
+            };
+        }
+    );
+
+    server.tool(
+        "search-templates",
+        "Search for Azure Developer CLI (azd) templates by keyword",
+        {
+            query: z.string().describe('The query to search for templates with')
+        },
+        async ({ query }) => {
+            const result = await searchTemplates(query);
+            
+            let responseText: string;
+            if ('error' in result) {
+                responseText = result.error;
+            } else if (result.count === 0) {
+                responseText = `No templates found matching: '${query}'`;
+            } else {
+                responseText = `# Templates matching '${query}'\n\nFound ${result.count} templates:\n\n\`\`\`\n${result.templates}\n\`\`\``;
+            }
+            
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: responseText
+                    }
+                ]
+            };
+        }
+    );
+
+    server.tool(
+        "search-ai-gallery",
+        "Search for templates from the Azure AI gallery by keyword",
+        {
+            query: z.string().describe('The query to search for templates in the AI gallery')
+        },
+        async ({ query }) => {
+            const result = await searchAiGallery(query);
+            
+            let responseText: string;
+            if ('error' in result) {
+                responseText = result.error;
+            } else if (result.count === 0) {
+                responseText = `No AI gallery templates found matching: '${query}'`;
+            } else {
+                responseText = `# AI Gallery Templates matching '${query}'\n\nFound ${result.count} templates:\n\n\`\`\`\n${result.templates}\n\`\`\``;
+            }
+            
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: responseText
                     }
                 ]
             };
