@@ -10,8 +10,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.target_commitish }}
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
@@ -39,7 +45,7 @@ jobs:
           # Get release body
           RELEASE_BODY="${{ github.event.release.body }}"
           
-          # Create a cleaner way to update the CHANGELOG instead of using sed with complex strings
+          # Create a cleaner way to update the CHANGELOG
           echo -e "\n## [$VERSION] - $TODAY\n\n$RELEASE_BODY\n\n$(tail -n +5 CHANGELOG.md)" > CHANGELOG.md.new
           mv CHANGELOG.md.new CHANGELOG.md
       
@@ -51,13 +57,32 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
       
-      - name: Commit CHANGELOG.md update
+      - name: Get target branch
+        id: get-branch
+        run: |
+          BRANCH=${GITHUB_REF#refs/tags/}
+          BRANCH=${GITHUB_REF_NAME%/*}
+          # Default to main if we can't determine the branch
+          if [[ -z "$BRANCH" ]]; then
+            BRANCH="main"
+          fi
+          echo "Target branch: $BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push CHANGELOG and package.json updates
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
+          # Make sure we're on the right branch
+          git checkout ${{ steps.get-branch.outputs.branch || 'main' }}
+          
+          # Apply changes
           git add CHANGELOG.md
           git add package.json
+          
+          # Commit and push if there are changes
           git commit -m "Update CHANGELOG.md and package.json for release ${{ github.event.release.tag_name }}" || echo "No changes to commit"
-          git push
+          git push origin ${{ steps.get-branch.outputs.branch || 'main' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
