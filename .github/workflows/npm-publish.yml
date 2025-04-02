@@ -29,17 +29,9 @@ jobs:
           # Get release body
           RELEASE_BODY="${{ github.event.release.body }}"
           
-          # Create new changelog entry
-          CHANGELOG_ENTRY=$(cat << EOF
-
-          ## [$VERSION] - $TODAY
-
-          $RELEASE_BODY
-          EOF
-          )
-          
-          # Add new entry after the header section of CHANGELOG.md
-          sed -i '5s/^/'"$CHANGELOG_ENTRY"'\n/' CHANGELOG.md
+          # Create a cleaner way to update the CHANGELOG instead of using sed with complex strings
+          echo -e "\n## [$VERSION] - $TODAY\n\n$RELEASE_BODY\n\n$(tail -n +5 CHANGELOG.md)" > CHANGELOG.md.new
+          mv CHANGELOG.md.new CHANGELOG.md
       
       - name: Build
         run: npm run build
