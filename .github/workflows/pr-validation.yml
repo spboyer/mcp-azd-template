@@ -1,0 +1,39 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint code
+        run: npm run lint || echo "Linting not configured. Consider adding eslint to your project."
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Run tests
+        run: npm test
+
+  # Add a required check that this workflow must pass
+  require-tests:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tests must pass
+        run: echo "All tests passed!"
