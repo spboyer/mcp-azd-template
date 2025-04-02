@@ -26,6 +26,10 @@ jest.mock('../azd-tools', () => ({
 }));
 
 describe('MCP Server Creation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('createServer creates an MCP server with correct configuration', () => {
     const server = createServer();
     
@@ -48,32 +52,21 @@ describe('MCP Server Creation', () => {
     
     registerTools(mockServer);
     
-    // Each tool should be registered with proper schema validation
-    expect(mockServer.tool).toHaveBeenCalledTimes(4);
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'list-templates',
-      expect.any(String),
-      expect.any(Object),
-      expect.any(Function)
-    );
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'analyze-template',
-      expect.any(String),
-      expect.any(Object),
-      expect.any(Function)
-    );
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'validate-template',
-      expect.any(String),
-      expect.any(Object),
-      expect.any(Function)
-    );
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'create-template',
-      expect.any(String),
-      expect.any(Object),
-      expect.any(Function)
-    );
+    // There are four distinct tools that should be registered
+    const expectedTools = ['list-templates', 'analyze-template', 'validate-template', 'create-template'];
+    
+    // Verify each tool was registered
+    expectedTools.forEach(toolName => {
+      expect(mockServer.tool).toHaveBeenCalledWith(
+        toolName,
+        expect.any(String),
+        expect.any(Object),
+        expect.any(Function)
+      );
+    });
+    
+    // Verify tool was called exactly once for each expected tool
+    expect(mockServer.tool).toHaveBeenCalledTimes(expectedTools.length);
   });
 });
 

@@ -15,6 +15,7 @@
     "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
     "declarationMap": true,                           /* Create sourcemaps for d.ts files. */
     "sourceMap": true,                                /* Create source map files for emitted JavaScript files. */
+    "isolatedModules": true,                          /* Ensure that each file can be safely transpiled without relying on other imports. */
     
     /* Interop Constraints */
     "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */

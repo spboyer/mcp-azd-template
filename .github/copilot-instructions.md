@@ -13,6 +13,7 @@ When suggesting code for this project:
 3. Include proper error handling for azd CLI operations
 4. Validate inputs using Zod schemas
 5. Format tool outputs in a clear, human-readable way
+6. Include proper test for any new code added
 
 For more information about MCP server development:
 - MCP SDK documentation: https://modelcontextprotocol.io/sdk

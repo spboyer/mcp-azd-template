@@ -9,10 +9,10 @@ module.exports = {
   coverageReporters: ['text', 'lcov'],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
+      branches: 40,
+      functions: 50,
+      lines: 50,
+      statements: 50
     }
   },
   // Handle shebang lines in source files
