@@ -102,8 +102,13 @@ describe('validateTemplate', () => {
     });
 
     const result = await validateTemplate('/test/path');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
+    
+    // Check if result is error type
+    if ('error' in result) {
+      expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
+    } else {
+      fail('Expected error result but got validation result');
+    }
   });
 
   test('should return error when directory does not exist', async () => {
@@ -111,8 +116,13 @@ describe('validateTemplate', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(false);
     
     const result = await validateTemplate('/test/path');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toBe('Template directory does not exist');
+    
+    // Check if result is error type
+    if ('error' in result) {
+      expect(result.error).toBe('Template directory does not exist');
+    } else {
+      fail('Expected error result but got validation result');
+    }
   });
 
   test('should validate template structure', async () => {
@@ -139,9 +149,14 @@ describe('validateTemplate', () => {
     `);
     
     const result = await validateTemplate('/test/path');
-    expect(result).not.toHaveProperty('error');
-    expect(result).toHaveProperty('hasAzureYaml', true);
-    expect(result).toHaveProperty('hasReadme', true);
+    
+    // Check if result is validation result type
+    if ('error' in result) {
+      fail('Expected validation result but got error');
+    } else {
+      expect(result).toHaveProperty('hasAzureYaml', true);
+      expect(result).toHaveProperty('hasReadme', true);
+    }
   });
 });
 
