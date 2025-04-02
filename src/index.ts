@@ -5,7 +5,7 @@ import {
     analyzeTemplate, 
     validateTemplate,
     createTemplate
-} from "./azd-tools.js";
+} from "./azd-tools";
 import { z } from "zod";
 
 // Export the tool functions for programmatic usage
@@ -14,7 +14,7 @@ export {
     analyzeTemplate, 
     validateTemplate, 
     createTemplate 
-} from "./azd-tools.js";
+} from "./azd-tools";
 
 // Create MCP server instance
 export const createServer = (): McpServer => {
