@@ -8,6 +8,7 @@ import {
   getTemplateInfo
 } from '../azd-tools';
 import { execSync } from 'child_process';
+import * as yaml from 'yaml';
 
 // Mock child_process and fs modules
 jest.mock('child_process', () => ({
@@ -25,6 +26,12 @@ jest.mock('fs', () => ({
     writeFile: jest.fn().mockResolvedValue(undefined)
   },
   readdirSync: jest.fn()
+}));
+
+// Mock yaml module
+jest.mock('yaml', () => ({
+  parse: jest.fn(),
+  stringify: jest.fn().mockReturnValue('mocked-yaml-content')
 }));
 
 // Mock process.cwd()
@@ -77,25 +84,58 @@ describe('getTemplateInfo', () => {
 });
 
 describe('analyzeTemplate', () => {
+  beforeEach(() => {
+    // Setup for analyzeTemplate tests
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.readFileSync as jest.Mock).mockReturnValue('name: test-template');
+  });
+
   test('should return error when no azure.yaml found', async () => {
-    jest.spyOn(global, 'getTemplateInfo' as any).mockResolvedValue(null);
+    (fs.existsSync as jest.Mock).mockReturnValueOnce(false);
     
     const result = await analyzeTemplate('/test/path');
     expect(result).toHaveProperty('error');
+    expect(result.error).toBe('Invalid template directory or missing azure.yaml file');
   });
 
   test('should analyze template structure correctly', async () => {
-    jest.spyOn(global, 'getTemplateInfo' as any).mockResolvedValue('name: test');
     (fs.readdirSync as jest.Mock).mockReturnValue(['infra/main.bicep', 'src/index.ts']);
     
     const result = await analyzeTemplate('/test/path');
-    expect(result).toHaveProperty('hasInfra', true);
-    expect(result).toHaveProperty('hasApp', true);
-    expect(result).toHaveProperty('configFile', 'name: test');
+    
+    // Type guard to check if result is an analysis result and not an error
+    if (!('error' in result)) {
+      expect(result).toHaveProperty('hasInfra', true);
+      expect(result).toHaveProperty('hasApp', true);
+      expect(result).toHaveProperty('configFile', 'name: test-template');
+    } else {
+      fail('Expected analysis result but got error');
+    }
+  });
+
+  test('should handle errors during analysis', async () => {
+    (fs.readdirSync as jest.Mock).mockImplementation(() => {
+      throw new Error('Failed to read directory');
+    });
+
+    const result = await analyzeTemplate('/test/path');
+    expect(result).toHaveProperty('error');
+    expect(result.error).toContain('Failed to analyze template');
   });
 });
 
 describe('validateTemplate', () => {
+  beforeEach(() => {
+    // Default mocks for validation tests
+    (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.readFileSync as jest.Mock).mockReturnValue('name: test-template');
+    (yaml.parse as jest.Mock).mockReturnValue({
+      name: 'test-template',
+      services: { web: { language: 'typescript', host: 'appservice' } }
+    });
+  });
+
   test('should return error when azd is not installed', async () => {
     (execSync as jest.Mock).mockImplementation(() => {
       throw new Error('command not found');
@@ -103,7 +143,7 @@ describe('validateTemplate', () => {
 
     const result = await validateTemplate('/test/path');
     
-    // Check if result is error type
+    // Type guard for proper error handling
     if ('error' in result) {
       expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
     } else {
@@ -112,12 +152,10 @@ describe('validateTemplate', () => {
   });
 
   test('should return error when directory does not exist', async () => {
-    (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.existsSync as jest.Mock).mockReturnValueOnce(false);
     
     const result = await validateTemplate('/test/path');
     
-    // Check if result is error type
     if ('error' in result) {
       expect(result.error).toBe('Template directory does not exist');
     } else {
@@ -126,14 +164,6 @@ describe('validateTemplate', () => {
   });
 
   test('should validate template structure', async () => {
-    (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
-    (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
-      if (path.includes('azure.yaml') || path.includes('README.md')) {
-        return true;
-      }
-      return false;
-    });
-    
     (fs.promises.readFile as jest.Mock).mockResolvedValue(`
       # Test Template
       
@@ -150,12 +180,12 @@ describe('validateTemplate', () => {
     
     const result = await validateTemplate('/test/path');
     
-    // Check if result is validation result type
     if ('error' in result) {
-      fail('Expected validation result but got error');
+      fail(`Expected validation result but got error: ${result.error}`);
     } else {
       expect(result).toHaveProperty('hasAzureYaml', true);
       expect(result).toHaveProperty('hasReadme', true);
+      expect(Array.isArray(result.errors)).toBe(true);
     }
   });
 });

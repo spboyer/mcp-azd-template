@@ -5,7 +5,7 @@ import {
   registerTools,
 } from '../index';
 
-// Mock the McpServer class
+// Mock the McpServer class following MCP server implementation practices
 jest.mock("@modelcontextprotocol/sdk/server/mcp.js", () => {
   const mockTool = jest.fn();
   const mockServer = {
@@ -17,8 +17,8 @@ jest.mock("@modelcontextprotocol/sdk/server/mcp.js", () => {
   };
 });
 
-// Mock the azd-tools exports
-jest.mock('../azd-tools.js', () => ({
+// Mock the azd-tools module following proper error handling patterns
+jest.mock('../azd-tools', () => ({
   listTemplates: jest.fn(),
   analyzeTemplate: jest.fn(),
   validateTemplate: jest.fn(),
@@ -48,7 +48,7 @@ describe('MCP Server Creation', () => {
     
     registerTools(mockServer);
     
-    // Each tool should be registered
+    // Each tool should be registered with proper schema validation
     expect(mockServer.tool).toHaveBeenCalledTimes(4);
     expect(mockServer.tool).toHaveBeenCalledWith(
       'list-templates',

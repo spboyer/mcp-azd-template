@@ -14,5 +14,18 @@ module.exports = {
       lines: 70,
       statements: 70
     }
-  }
+  },
+  // Handle shebang lines in source files
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        isolatedModules: true,
+      },
+    ],
+  },
+  // Ignore .d.ts files to prevent empty test suite errors
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '\\.d\\.ts$'],
+  // Make sure we don't run tests on declaration files
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
 };
