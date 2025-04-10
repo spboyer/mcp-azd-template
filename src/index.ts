@@ -59,7 +59,9 @@ export function registerTools(server: McpServer): void {
                 }]
             };
         }
-    );    // Update search templates handler to handle new return type
+    );
+    
+    // Update search templates handler to handle new return type
     server.tool(
         "bb7_search-templates",
         "Search for Azure Developer CLI (azd) templates by keyword",
@@ -68,14 +70,25 @@ export function registerTools(server: McpServer): void {
         },
         async ({ query }: { query: string }) => {
             const result = await searchTemplates(query);
-            return {
+            
+            let responseText: string;
+            if (result.error) {
+                responseText = result.error;
+            } else if (result.count === 0 || result.templates.includes('No templates found')) {
+                responseText = result.templates;
+            } else {
+                responseText = `# Templates matching '${query}'\n\nFound ${result.count} templates:\n\n\`\`\`\n${result.templates}\n\`\`\``;
+            }
+              return {
                 content: [{
                     type: "text",
-                    text: result.error || result.templates
+                    text: responseText
                 }]
             };
         }
-    );server.tool(
+    );
+
+    server.tool(
         "bb7_search-ai-gallery",
         "Search for templates from the Azure AI gallery by keyword",
         {
@@ -92,8 +105,7 @@ export function registerTools(server: McpServer): void {
             } else {
                 responseText = `# AI Gallery Templates matching '${query}'\n\nFound ${result.count} templates:\n\n\`\`\`\n${result.templates}\n\`\`\``;
             }
-            
-            return {
+              return {
                 content: [
                     {
                         type: "text",
@@ -105,7 +117,7 @@ export function registerTools(server: McpServer): void {
     );
 
     server.tool(
-        "analyze-template",
+        "bb7_analyze-template",
         "Analyze an Azure Developer CLI (azd) template directory and provide insights",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
@@ -145,10 +157,8 @@ ${result.recommendations.length > 0
                 ]
             };
         }
-    );
-
-    server.tool(
-        "validate-template",
+    );    server.tool(
+        "bb7_validate-template",
         "Validate an Azure Developer CLI (azd) template directory for compliance with best practices",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
@@ -244,10 +254,8 @@ ${totalIssues === 0
                 ]
             };
         }
-    );
-
-    server.tool(
-        "create-template",
+    );    server.tool(
+        "bb7_create-template",
         "Create a new Azure Developer CLI (azd) template with best practices",
         {
             name: z.string().min(2).describe('Name of the template'),
