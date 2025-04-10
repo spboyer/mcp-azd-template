@@ -386,6 +386,37 @@ describe('Tool Handlers', () => {
       ]
     });
   });
+
+  test('validate-template handler should report when a Mermaid diagram was added', async () => {
+    // Override the mock to simulate diagram being added
+    (validateTemplate as jest.Mock).mockResolvedValueOnce({
+      hasAzureYaml: true,
+      hasReadme: true,
+      errors: [],
+      warnings: [],
+      securityChecks: [],
+      infraChecks: [],
+      readmeIssues: [],
+      devContainerChecks: [],
+      workflowChecks: [],
+      diagramAdded: true // Indicate diagram was added
+    });
+    
+    const handler = toolHandlers['validate-template'];
+    const result = await handler({ templatePath: '/valid/path' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('Automatic Updates Applied')
+        }
+      ]
+    });
+    
+    // Check for the diagram added message
+    expect(result.content[0].text).toContain('Mermaid architecture diagram was generated');
+  });
 });
 
 describe('Helper Functions', () => {

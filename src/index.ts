@@ -45,59 +45,43 @@ export function formatValidationSection(title: string, items: string[], icon: st
 
 // Register tools on an MCP server instance
 export function registerTools(server: McpServer): void {
+    // Update list templates handler to handle error properly
     server.tool(
-        "list-templates",
+        "bb7_list-templates",
         "List all available Azure Developer CLI (azd) templates",
         {},
         async () => {
             const result = await listTemplates();
             return {
-                content: [
-                    {
-                        type: "text",
-                        text: result.error ?? result.templates
-                    }
-                ]
+                content: [{
+                    type: "text",
+                    text: result.templates || result.error || 'No templates found'
+                }]
             };
         }
-    );
-
+    );    // Update search templates handler to handle new return type
     server.tool(
-        "search-templates",
+        "bb7_search-templates",
         "Search for Azure Developer CLI (azd) templates by keyword",
         {
-            query: z.string().describe('The query to search for templates with')
+            query: z.string().describe("The query to search for templates with")
         },
-        async ({ query }) => {
+        async ({ query }: { query: string }) => {
             const result = await searchTemplates(query);
-            
-            let responseText: string;
-            if ('error' in result) {
-                responseText = result.error ?? 'An unknown error occurred';
-            } else if (result.count === 0) {
-                responseText = `No templates found matching: '${query}'`;
-            } else {
-                responseText = `# Templates matching '${query}'\n\nFound ${result.count} templates:\n\n\`\`\`\n${result.templates}\n\`\`\``;
-            }
-            
             return {
-                content: [
-                    {
-                        type: "text",
-                        text: responseText
-                    }
-                ]
+                content: [{
+                    type: "text",
+                    text: result.error || result.templates
+                }]
             };
         }
-    );
-
-    server.tool(
-        "search-ai-gallery",
+    );server.tool(
+        "bb7_search-ai-gallery",
         "Search for templates from the Azure AI gallery by keyword",
         {
             query: z.string().describe('The query to search for templates in the AI gallery')
         },
-        async ({ query }) => {
+        async ({ query }: { query: string }) => {
             const result = await searchAiGallery(query);
             
             let responseText: string;
@@ -227,6 +211,11 @@ ${result.recommendations.length > 0
             // Additional Warnings
             if (result.warnings.length > 0) {
                 sections.push(formatValidationSection('Additional Recommendations', result.warnings, '💡'));
+            }
+
+            // Report if a Mermaid diagram was added
+            if (result.diagramAdded) {
+                sections.push('\n## 🔄 Automatic Updates Applied\n✅ A Mermaid architecture diagram was generated from your infrastructure code and added to the README.md file.');
             }
 
             // Overall Status

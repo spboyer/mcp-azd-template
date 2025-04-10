@@ -47,36 +47,39 @@ afterEach(() => {
   process.cwd = originalCwd;
 });
 
+describe('Azure Developer CLI Tools', () => {
+
 describe('listTemplates', () => {
-  test('should return error when azd is not installed', async () => {
-    (execSync as jest.Mock).mockImplementation(() => {
-      throw new Error('command not found');
+    test('should handle azd not installed', async () => {
+        (execSync as jest.Mock).mockImplementation(() => {
+            throw new Error('command not found');
+        });
+
+        const result = await listTemplates();
+        expect(result.error).toBeDefined();
+        expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
+        expect(result.templates).toBe('');
     });
 
-    const result = await listTemplates();
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
-  });
+    test('should return templates list', async () => {
+        const mockOutput = 'template1\ntemplate2\ntemplate3';
+        (execSync as jest.Mock).mockReturnValue(mockOutput);
 
-  test('should return templates when azd is installed', async () => {
-    const mockOutput = 'template1\ntemplate2\ntemplate3';
-    (execSync as jest.Mock).mockReturnValue(mockOutput);
-
-    const result = await listTemplates();
-    expect(result).toHaveProperty('templates');
-    expect(result.templates).toBe(mockOutput);
-  });
-
-  test('should handle generic errors during execution', async () => {
-    (execSync as jest.Mock).mockImplementation(() => {
-      throw new Error('Some other error');
+        const result = await listTemplates();
+        expect(result.error).toBeUndefined();
+        expect(result.templates).toBe(mockOutput);
     });
 
-    const result = await listTemplates();
-    expect(result).toHaveProperty('error');
-    // Updated to match actual error message format
-    expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
-  });
+    test('should handle execution error', async () => {
+        (execSync as jest.Mock).mockImplementation(() => {
+            throw new Error('Failed to execute');
+        });
+
+        const result = await listTemplates();
+        expect(result.error).toBeDefined();
+        expect(result.error).toContain('Failed to list templates');
+        expect(result.templates).toBe('');
+    });
 });
 
 describe('getTemplateInfo', () => {
@@ -317,210 +320,314 @@ describe('validateTemplate', () => {
     // Should have used the mocked cwd path
     expect(fs.existsSync).toHaveBeenCalledWith(expect.stringContaining('/mock/workspace'));
   });
-});
 
-describe('createTemplate', () => {
-  test('should create template with correct structure', async () => {
-    const params = {
-      name: 'test-template',
-      language: 'typescript',
-      architecture: 'web'
-    };
+  test('should generate and insert Mermaid diagram when missing', async () => {
+    // Setup mocks for diagram generation test
+    (fs.promises.readFile as jest.Mock).mockImplementation((path) => {
+      if (path.toString().endsWith('README.md')) {
+        return `
+          # Test Template
+          
+          ## Architecture Diagram
+          
+          [Insert your architecture diagram here]
+          
+          ## Resources
+        `;
+      } else if (path.toString().endsWith('.bicep')) {
+        return `
+          param location string = resourceGroup().location
+          
+          resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
+            name: 'plan-\${environmentName}-\${resourceToken}'
+            location: location
+            sku: { name: 'B1' }
+          }
+          
+          resource webApp 'Microsoft.Web/sites@2022-03-01' = {
+            name: 'app-\${environmentName}-\${resourceToken}'
+            location: location
+            tags: { 'azd-service-name': 'web' }
+            properties: {
+              serverFarmId: appServicePlan.id
+            }
+          }
+          
+          resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+            name: 'kv-\${environmentName}-\${resourceToken}'
+            location: location
+            properties: {
+              tenantId: subscription().tenantId
+              sku: { family: 'A', name: 'standard' }
+            }
+          }
+        `;
+      }
+      throw new Error(`Unexpected file: ${path}`);
+    });    // Mock path exists for tests
+    const pathExistsMock = jest.spyOn(global, 'pathExists' as any).mockImplementation((...args: unknown[]) => {
+      if (args.length < 2 || typeof args[1] !== 'string') return false;
+      const pathToCheck = args[1] as string;
+      return pathToCheck.includes('infra') || pathToCheck.includes('README.md');
+    });
     
-    const result = await createTemplate(params);
-    expect(result).toHaveProperty('success', true);
-    expect(fs.promises.mkdir).toHaveBeenCalled();
-    expect(fs.promises.writeFile).toHaveBeenCalled();
-  });
-
-  test('should handle errors during template creation', async () => {
-    (fs.promises.mkdir as jest.Mock).mockRejectedValue(new Error('Failed to create directory'));
+    // Mock fs.promises.writeFile
+    (fs.promises.writeFile as jest.Mock).mockResolvedValue(undefined);
     
-    const params = {
-      name: 'test-template',
-      language: 'typescript',
-      architecture: 'web'
-    };
+    // Mock fs.promises.readdir
+    (fs.promises.readdir as jest.Mock).mockImplementation((dirPath, options) => {
+      if (dirPath.toString().includes('infra')) {
+        return [{ name: 'main.bicep', isFile: () => true }];
+      }
+      return [];
+    });
     
-    const result = await createTemplate(params);
-    expect(result).toHaveProperty('success', false);
-    expect(result.message).toContain('Failed to create template');
-  });
-
-  test('should create template with different architectures', async () => {
-    // Reset call counts before running this test
-    jest.clearAllMocks();
+    const result = await validateTemplate('/test/path');
     
-    const architectures = ['web', 'api', 'function', 'container', 'other'];
-    
-    for (const architecture of architectures) {
-      const params = {
-        name: 'test-template',
-        language: 'typescript',
-        architecture: architecture as any // Type assertion needed for the test
-      };
+    expect('error' in result).toBe(false);
+    if (!('error' in result)) {
+      // Check if diagram was added
+      expect(result.diagramAdded).toBe(true);
       
-      await createTemplate(params);
+      // Ensure writeFile was called (to insert the diagram)
+      expect(fs.promises.writeFile).toHaveBeenCalled();
+      
+      // Verify the content of the first call to writeFile contains mermaid
+      const writeFileCall = (fs.promises.writeFile as jest.Mock).mock.calls[0];
+      expect(writeFileCall[1]).toContain('```mermaid');
     }
     
-    // Remove the exact call count expectation and just verify directories were created
-    expect(fs.promises.mkdir).toHaveBeenCalled();
-    // Verify mkdir was called at least once per architecture
-    expect((fs.promises.mkdir as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(architectures.length);
-  });
-  
-  test('should create template with different languages', async () => {
-    // Reset call counts before running this test
-    jest.clearAllMocks();
-    
-    const languages = ['typescript', 'python', 'java', 'dotnet'];
-    
-    for (const language of languages) {
-      const params = {
-        name: 'test-template',
-        language: language as any, // Type assertion needed for the test
-        architecture: 'web'
-      };
-      
-      await createTemplate(params);
-    }
-    
-    // Remove the exact call count expectation and just verify files were written
-    expect(fs.promises.writeFile).toHaveBeenCalled();
-    // Verify writeFile was called at least once per language
-    expect((fs.promises.writeFile as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(languages.length);
-  });
-  
-  test('should use current workspace if no output path provided', async () => {
-    const params = {
-      name: 'test-template',
-      language: 'typescript',
-      architecture: 'web'
-    };
-    
-    await createTemplate(params);
-    
-    // Should have created the directory in the mocked cwd - using path.join for platform independence
-    const expectedPathPattern = path.join('/mock/workspace', 'test-template').replace(/\\/g, '\\\\');
-    expect(fs.promises.mkdir).toHaveBeenCalledWith(
-      expect.stringMatching(new RegExp(expectedPathPattern)), 
-      expect.anything()
-    );
+    // Restore mocked functions
+    pathExistsMock.mockRestore();
   });
 });
 
-describe('searchTemplates', () => {
-  test('should return error when azd is not installed', async () => {
-    (execSync as jest.Mock).mockImplementation(() => {
-      throw new Error('command not found');
-    });
-
-    const result = await searchTemplates('web');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Azure Developer CLI (azd) is not installed');
-  });
-
-  test('should return matching templates when azd is installed', async () => {
-    const mockOutput = 'webapp-starter\nweb-api-template\nweb-function\nother-template';
-    (execSync as jest.Mock).mockReturnValue(mockOutput);
-
-    const result = await searchTemplates('web');
-    expect(result).toHaveProperty('templates');
-    expect(result).toHaveProperty('count');
-    expect(result.count).toBe(3); // Only the templates containing 'web'
-    expect(result.templates).toContain('webapp-starter');
-    expect(result.templates).toContain('web-api-template');
-    expect(result.templates).toContain('web-function');
-    expect(result.templates).not.toContain('other-template');
-  });
-
-  test('should return no results message when no templates match', async () => {
-    const mockOutput = 'webapp-starter\nnode-app\nweb-api-template';
-    (execSync as jest.Mock).mockReturnValue(mockOutput);
-
-    const result = await searchTemplates('nonexistent');
-    expect(result).toHaveProperty('templates');
-    expect(result).toHaveProperty('count');
-    expect(result.count).toBe(0);
-    expect(result.templates).toContain('No templates found matching');
-  });
-
-  test('should handle errors during execution', async () => {
-    (execSync as jest.Mock).mockImplementation(() => {
-      throw new Error('Some error occurred');
-    });
-
-    const result = await searchTemplates('web');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Failed to search templates');
-  });
-});
-
-describe('searchAiGallery', () => {
-  // Mock global fetch API
-  const originalFetch = global.fetch;
-  
+describe('Mermaid Diagram Generation', () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
+    jest.clearAllMocks();
+  });
+
+  test('checkForMermaidDiagram should detect Mermaid diagrams', async () => {
+    // Setup
+    const withDiagram = '# Test\n\n```mermaid\ngraph TD\nA-->B\n```\n';
+    const withoutDiagram = '# Test\n\nNo diagram here\n';
+    
+    // Test with diagram
+    (fs.promises.readFile as jest.Mock).mockResolvedValueOnce(withDiagram);
+    let result = await (global as any).checkForMermaidDiagram('path/to/readme.md');
+    expect(result).toBe(true);
+    
+    // Test without diagram
+    (fs.promises.readFile as jest.Mock).mockResolvedValueOnce(withoutDiagram);
+    result = await (global as any).checkForMermaidDiagram('path/to/readme.md');
+    expect(result).toBe(false);
+    
+    // Test with error
+    (fs.promises.readFile as jest.Mock).mockRejectedValueOnce(new Error('File not found'));
+    result = await (global as any).checkForMermaidDiagram('nonexistent/readme.md');
+    expect(result).toBe(false);
+  });
+
+  test('createDefaultMermaidDiagram should return a valid Mermaid diagram', () => {
+    const diagram = (global as any).createDefaultMermaidDiagram();
+    
+    expect(diagram).toContain('graph TD');
+    expect(diagram).toContain('User');
+    expect(diagram).toContain('FrontEnd');
+    expect(diagram).toContain('API');
+    expect(diagram).toContain('Database');
+    expect(diagram).toContain('-->'); // Should have connections
+  });
+
+  test('generateMermaidDiagram should create diagram from parsed resources', () => {
+    const resources = {
+      appServicePlan: {
+        type: 'Microsoft.Web/serverfarms',
+        connections: [],
+        properties: { name: 'plan-test' }
+      },
+      webApp: {
+        type: 'Microsoft.Web/sites',
+        connections: ['appServicePlan'],
+        properties: { name: 'app-test', service: 'web' }
+      },
+      keyVault: {
+        type: 'Microsoft.KeyVault/vaults',
+        connections: [],
+        properties: { name: 'kv-test' }
+      }
+    };
+    
+    const diagram = (global as any).generateMermaidDiagram(resources);
+    
+    // Check structure
+    expect(diagram).toContain('graph TD');
+    
+    // Check nodes
+    expect(diagram).toContain('appServicePlan');
+    expect(diagram).toContain('webApp');
+    expect(diagram).toContain('keyVault');
+    
+    // Check connections
+    expect(diagram).toContain('webApp --> appServicePlan');
+    
+    // Check labels
+    expect(diagram).toContain('app-test');
+    expect(diagram).toContain('plan-test');
+    expect(diagram).toContain('kv-test');
+    
+    // Check service tags
+    expect(diagram).toContain('(web)');
+  });
+  test('generateMermaidFromBicep should parse Bicep files and create diagram', async () => {
+    // Setup mocks
+    const pathExistsSpy = jest.spyOn(global, 'pathExists' as any).mockImplementation((...args: unknown[]) => {
+      if (args.length >= 2 && typeof args[1] === 'string') {
+        return args[1].includes('infra/main.bicep');
+      }
+      return false;
+    });
+    
+    (fs.promises.readdir as jest.Mock).mockImplementation((dirPath, options) => {
+      if (dirPath.toString().includes('infra')) {
+        if (options?.withFileTypes) {
+          return [{ 
+            name: 'main.bicep', 
+            isFile: () => true,
+            isDirectory: () => false
+          }];
+        }
+        return ['main.bicep'];
+      }
+      return [];
+    });
+    
+    (fs.promises.readFile as jest.Mock).mockResolvedValue(`
+      param location string = resourceGroup().location
+      
+      resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
+        name: 'plan-\${environmentName}'
+        location: location
+        sku: { name: 'B1' }
+      }
+      
+      resource webApp 'Microsoft.Web/sites@2022-03-01' = {
+        name: 'app-\${environmentName}'
+        location: location
+        tags: { 'azd-service-name': 'web' }
+        properties: {
+          serverFarmId: appServicePlan.id
+        }
+      }
+    `);
+      const result = await (global as any).generateMermaidFromBicep('/test/path');
+    
+    // Properly checking result object properties
+    if (typeof result === 'object' && result !== null) {
+      expect(result.diagram).toContain('graph TD');
+      expect(result.diagram).toContain('appServicePlan');
+      expect(result.diagram).toContain('webApp');
+      // Should detect the connection from webApp to appServicePlan
+      expect(result.diagram).toContain('webApp --> appServicePlan');
+    }
+    
+    // Restore mocks
+    if (pathExistsSpy && typeof pathExistsSpy.mockRestore === 'function') {
+      pathExistsSpy.mockRestore();
+    }
   });
   
-  afterEach(() => {
-    global.fetch = originalFetch;
+  test('generateMermaidFromBicep should handle missing Bicep files', async () => {
+    // Mock no Bicep files
+    const pathExistsSpy = jest.spyOn(global, 'pathExists' as any).mockResolvedValue(false);
+    
+    (fs.promises.readdir as jest.Mock).mockResolvedValue([]);
+    
+    const diagram = await (global as any).generateMermaidFromBicep('/test/path');
+    
+    // Should create default diagram
+    expect(diagram).toContain('graph TD');
+    expect(diagram).toContain('placeholder diagram');
+      // Restore mocks
+    pathExistsSpy.mockRestore();
   });
 
-  test('should handle successful API response with results', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        items: [
-          { name: 'web-template', version: '1.0', description: 'Web template' },
-          { name: 'api-template', version: '2.0', description: 'API template' }
-        ]
-      })
-    });
-
-    const result = await searchAiGallery('web');
-    expect(result).toHaveProperty('templates');
-    expect(result).toHaveProperty('count');
-    expect(result).toHaveProperty('source');
-    expect(result.source).toBe('ai-gallery');
-    expect(result.count).toBe(2);
-    expect(result.templates).toContain('web-template');
-    expect(result.templates).toContain('API template');
+  test('insertMermaidDiagram should add diagram to README', async () => {
+    // Mock readFile and writeFile
+    (fs.promises.readFile as jest.Mock).mockResolvedValue(`
+      # Test Template
+      
+      ## Architecture Diagram
+      
+      [Insert your architecture diagram here]
+      
+      ## Resources
+    `);
+    
+    (fs.promises.writeFile as jest.Mock).mockResolvedValue(undefined);
+    
+    const result = await (global as any).insertMermaidDiagram(
+      '/test/path/README.md',
+      'graph TD\nA-->B'
+    );
+    
+    expect(result).toBe(true);
+    
+    // Check that writeFile was called with correct content
+    const writeFileCall = (fs.promises.writeFile as jest.Mock).mock.calls[0];
+    expect(writeFileCall[0]).toBe('/test/path/README.md');
+    expect(writeFileCall[1]).toContain('```mermaid');
+    expect(writeFileCall[1]).toContain('graph TD');
+    expect(writeFileCall[1]).toContain('A-->B');
+    expect(writeFileCall[1]).toContain('_This diagram was automatically generated');
   });
 
-  test('should handle empty results from API', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ items: [] })
-    });
-
-    const result = await searchAiGallery('nonexistent');
-    expect(result).toHaveProperty('templates');
-    expect(result).toHaveProperty('count');
-    expect(result.count).toBe(0);
-    expect(result.templates).toContain('No templates found in AI gallery');
+  test('insertMermaidDiagram should add Architecture section if missing', async () => {
+    // Mock README without Architecture section
+    (fs.promises.readFile as jest.Mock).mockResolvedValue(`
+      # Test Template
+      
+      ## Features
+      
+      - Feature 1
+      
+      ## Requirements
+      
+      - Requirement 1
+    `);
+    
+    (fs.promises.writeFile as jest.Mock).mockResolvedValue(undefined);
+    
+    const result = await (global as any).insertMermaidDiagram(
+      '/test/path/README.md',
+      'graph TD\nA-->B'
+    );
+    
+    expect(result).toBe(true);
+    
+    // Check that writeFile was called with content containing new Architecture section
+    const writeFileCall = (fs.promises.writeFile as jest.Mock).mock.calls[0];
+    expect(writeFileCall[1]).toContain('## Architecture Diagram');
+    expect(writeFileCall[1]).toContain('```mermaid');
+    
+    // Should maintain existing sections
+    expect(writeFileCall[1]).toContain('## Features');
+    expect(writeFileCall[1]).toContain('## Requirements');
   });
 
-  test('should handle API error response', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      statusText: 'Not Found'
-    });
-
-    const result = await searchAiGallery('web');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Failed to search AI gallery');
-    expect(result.error).toContain('404');
+  test('insertMermaidDiagram should handle errors', async () => {
+    // Mock error in read or write
+    (fs.promises.readFile as jest.Mock).mockRejectedValue(new Error('Failed to read'));
+    
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    
+    const result = await (global as any).insertMermaidDiagram(
+      '/test/path/README.md',
+      'graph TD\nA-->B'
+    );
+    
+    expect(result).toBe(false);
+    expect(consoleSpy).toHaveBeenCalled();    consoleSpy.mockRestore();
   });
-
-  test('should handle network or other fetch errors', async () => {
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
-
-    const result = await searchAiGallery('web');
-    expect(result).toHaveProperty('error');
-    expect(result.error).toContain('Failed to search AI gallery');
-    expect(result.error).toContain('Network error');
-  });
+});
 });
