@@ -121,15 +121,14 @@ export function registerTools(server: McpServer): void {
         "Analyze an Azure Developer CLI (azd) template directory and provide insights",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
-        },
-        async ({ templatePath }) => {
+        },        async ({ templatePath }) => {
             const result = await analyzeTemplate(templatePath);
             if ('error' in result) {
                 return {
                     content: [
                         {
                             type: "text",
-                            text: result.error
+                            text: result.error || 'An unknown error occurred'
                         }
                     ]
                 };
@@ -151,7 +150,7 @@ ${result.configFile}
 \`\`\`
 
 ${result.recommendations.length > 0 
-    ? `## Recommendations\n${result.recommendations.map(r => `• ${r}`).join('\n')}`
+    ? `## Recommendations\n${result.recommendations.map((r: string) => `• ${r}`).join('\n')}`
     : '## Status\n✓ Template structure looks good!'}`
                     }
                 ]
@@ -162,15 +161,14 @@ ${result.recommendations.length > 0
         "Validate an Azure Developer CLI (azd) template directory for compliance with best practices",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
-        },
-        async ({ templatePath }) => {
+        },        async ({ templatePath }) => {
             const result = await validateTemplate(templatePath);
             if ('error' in result) {
                 return {
                     content: [
                         {
                             type: "text",
-                            text: result.error
+                            text: result.error || 'An unknown error occurred'
                         }
                     ]
                 };

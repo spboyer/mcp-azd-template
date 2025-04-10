@@ -1,76 +1,117 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { REQUIRED_README_SECTIONS, REQUIRED_SECURITY_NOTICE } from '../constants/config';
-import { ReadmeValidationResult } from '../types';
 
-export async function pathExists(basePath: string, pathToCheck: string): Promise<boolean> {
-    try {
-        const items = await fs.promises.readdir(path.dirname(path.join(basePath, pathToCheck)));
-        return items.some(item => item.toLowerCase() === path.basename(pathToCheck).toLowerCase());
-    } catch {
-        return false;
-    }
-}
-
-export async function validateReadmeContent(readmePath: string): Promise<ReadmeValidationResult> {
-    try {
-        const content = await fs.promises.readFile(readmePath, 'utf8');
-        
-        // Check required sections
-        const missingSections = REQUIRED_README_SECTIONS.filter(section => {
-            const sectionRegex = new RegExp(`##\\s+${section}`, 'i');
-            return !sectionRegex.test(content);
-        });
-
-        // Check for badges
-        const missingBadges = [];
-        if (!content.includes('[![Open in GitHub Codespaces]')) {
-            missingBadges.push('GitHub Codespaces');
-        }
-        if (!content.includes('[![Open in Dev Containers]')) {
-            missingBadges.push('Dev Containers');
-        }
-
-        // Check for architecture diagram
-        const warnings = [];
-        if (!content.includes('architecture') || 
-            (!content.includes('.png') && 
-             !content.includes('.drawio') && 
-             !content.includes('```mermaid'))) {
-            warnings.push('Architecture diagram section should include a diagram image or Mermaid diagram');
-        }
-
-        // Check for security notice
-        const hasSecurityNotice = content.includes(REQUIRED_SECURITY_NOTICE);
-
-        // Check for costs and region availability
-        if (!content.includes('pricing calculator')) {
-            warnings.push('Add link to Azure pricing calculator for cost estimation');
-        }
-        if (!content.includes('region availability')) {
-            warnings.push('Add information about region availability for Azure services');
-        }
-
-        // Check specifically for Mermaid diagram
-        const hasMermaidDiagram = content.includes('```mermaid') || content.includes('~~~mermaid');
-
-        return {
-            missingSections,
-            missingBadges,
-            missingSecurityNotice: !hasSecurityNotice,
-            warnings,
-            hasMermaidDiagram
-        };
-    } catch (error) {
-        throw new Error(`Failed to validate README: ${error}`);
-    }
+/**
+ * Gets the current workspace directory path
+ */
+export function getCurrentWorkspace(): string {
+    return process.cwd();
 }
 
 /**
- * Gets the current workspace path
- * @returns The path to the current workspace
+ * Checks if a file exists at the given path
  */
-export function getCurrentWorkspace(): string {
-    // Return the current working directory or a configured workspace path
-    return process.cwd();
+export async function pathExists(basePath: string, relativePath: string | readonly string[]): Promise<boolean> {
+    const paths = Array.isArray(relativePath) ? relativePath : [relativePath];
+    const fullPath = path.join(basePath, ...paths[0].split('/'));
+    return fs.promises.access(fullPath).then(() => true, () => false);
+}
+
+/**
+ * Validates README.md content against required sections
+ */
+export async function validateReadmeContent(content: string): Promise<string[]> {
+    const requiredSections = [
+        'Features',
+        'Getting Started',
+        'Prerequisites',
+        'Architecture',
+        'Security'
+    ];
+
+    const issues: string[] = [];
+    const contentLower = content.toLowerCase();
+    
+    for (const section of requiredSections) {
+        if (!contentLower.includes(`## ${section.toLowerCase()}`)) {
+            issues.push(`Missing required section: ${section}`);
+        }
+    }
+
+    return issues;
+}
+
+/**
+ * Validates dev container configuration
+ */
+export async function validateDevContainer(templatePath: string): Promise<string[]> {
+    const warnings: string[] = [];
+    const devContainerPath = path.join(templatePath, '.devcontainer');
+    
+    if (!await pathExists(templatePath, '.devcontainer')) {
+        warnings.push('Missing .devcontainer directory');
+        return warnings;
+    }
+
+    const devContainerJsonPath = path.join(devContainerPath, 'devcontainer.json');
+    if (!await pathExists(devContainerPath, 'devcontainer.json')) {
+        warnings.push('Missing devcontainer.json in .devcontainer directory');
+        return warnings;
+    }
+
+    try {
+        const config = JSON.parse(await fs.promises.readFile(devContainerJsonPath, 'utf8'));
+        if (!config.features?.['ghcr.io/devcontainers/features/azure-cli:1']) {
+            warnings.push('Dev container should include Azure CLI feature');
+        }
+        if (!config.features?.['ghcr.io/devcontainers/features/github-cli:1']) {
+            warnings.push('Dev container should include GitHub CLI feature');
+        }
+        if (!config.features?.['ghcr.io/devcontainers/features/docker-in-docker:1']) {
+            warnings.push('Consider adding Docker-in-Docker support for container scenarios');
+        }
+    } catch (error) {
+        warnings.push('Invalid devcontainer.json file');
+    }
+
+    return warnings;
+}
+
+/**
+ * Validates GitHub workflow configuration
+ */
+export async function validateGitHubWorkflows(templatePath: string): Promise<string[]> {
+    const warnings: string[] = [];
+    const workflowsPath = path.join(templatePath, '.github', 'workflows');
+    
+    if (!await pathExists(templatePath, '.github/workflows')) {
+        warnings.push('Missing .github/workflows directory');
+        return warnings;
+    }
+
+    try {
+        const files = await fs.promises.readdir(workflowsPath);
+        
+        // Check for validation/test workflow
+        const hasValidation = files.some(f => 
+            f.toLowerCase().includes('validate') || 
+            f.toLowerCase().includes('test'));
+            
+        if (!hasValidation) {
+            warnings.push('Add GitHub workflow for template validation and testing');
+        }
+
+        // Check for security scanning workflow
+        const hasSecurityScan = files.some(f => 
+            f.toLowerCase().includes('security') || 
+            f.toLowerCase().includes('scan'));
+            
+        if (!hasSecurityScan) {
+            warnings.push('Add security scanning workflow using microsoft/security-devops-action');
+        }
+    } catch (error) {
+        warnings.push('Error reading workflow files');
+    }
+
+    return warnings;
 }

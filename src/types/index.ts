@@ -8,25 +8,25 @@ export interface TemplateAnalysisResult {
 }
 
 export interface TemplateValidationResult {
-    hasAzureYaml: boolean;
-    hasReadme: boolean;
-    errors: string[];
-    warnings: string[];
-    securityChecks: string[];
-    infraChecks: string[];
-    readmeIssues: string[];
-    devContainerChecks: string[];
-    workflowChecks: string[];
-    diagramAdded?: boolean;
-    valid?: boolean; // Adding missing valid property
+     hasAzureYaml: boolean;
+     hasReadme: boolean;
+     errors: string[];
+     warnings: string[];
+     securityChecks: string[];
+     infraChecks: string[];
+     readmeIssues: string[];
+     devContainerChecks: string[];
+     workflowChecks: string[];
+     diagramAdded?: boolean;
+     valid?: boolean; // Adding missing valid property
 }
 
 export interface ReadmeValidationResult {
-    missingSections: string[];
-    missingBadges: string[];
-    missingSecurityNotice: boolean;
-    warnings: string[];
-    hasMermaidDiagram: boolean;
+     missingSections: string[];
+     missingBadges: string[];
+     missingSecurityNotice: boolean;
+     warnings: string[];
+     hasMermaidDiagram: boolean;
 }
 
 export interface TemplateSearchResult {

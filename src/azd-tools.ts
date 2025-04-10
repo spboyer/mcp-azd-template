@@ -12,7 +12,13 @@ export * from './services/template-creation';
 
 // Re-export schemas, types and utilities
 export * from './schemas/validation';
-export * from './types';
+// Re-export only non-conflicting types
+export type {
+    TemplateSearchResult,
+    TemplateCreateParams,
+    TemplateCreateResult,
+    ResourceDefinition
+} from './types';
 export * from './utils/validation';
 
 // Re-export constants for external use

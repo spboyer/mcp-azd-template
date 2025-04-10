@@ -153,7 +153,7 @@ describe('Tool Handlers', () => {
       // Extract the handlers from the mock calls
     toolHandlers = {};
     // Create a mapping from bb7_ prefixed names to original test keys
-    const toolMapping = {
+    const toolMapping: { [key: string]: string } = {
       'bb7_list-templates': 'list-templates',
       'bb7_search-templates': 'search-templates',
       'bb7_search-ai-gallery': 'search-ai-gallery',

@@ -13,7 +13,7 @@ export async function checkForMermaidDiagram(readmePath: string): Promise<boolea
     }
 }
 
-export async function generateMermaidFromBicep(templatePath: string): Promise<string> {
+export async function generateMermaidFromBicep(templatePath: string): Promise<{ diagram: string }> {
     const infraPath = path.join(templatePath, 'infra');
     let mainBicepPath = '';
     let resources: { [key: string]: ResourceDefinition } = {};
@@ -34,7 +34,7 @@ export async function generateMermaidFromBicep(templatePath: string): Promise<st
         }
         
         if (!mainBicepPath) {
-            return createDefaultMermaidDiagram();
+            return { diagram: createDefaultMermaidDiagram() };
         }
         
         // Parse the bicep file
@@ -62,10 +62,32 @@ export async function generateMermaidFromBicep(templatePath: string): Promise<st
             if (resourceMatch) {
                 const resourceBlock = resourceMatch[1];
                 
-                // Look for references to other resources
+                // Look for explicit dependencies
+                const dependsOnMatch = /dependsOn:\s*\[([\s\S]*?)\]/i.exec(resourceBlock);
+                if (dependsOnMatch) {
+                    const dependencies = dependsOnMatch[1]
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line && !line.startsWith('//'))
+                        .map(line => line.replace(/,$/, '')) // Remove trailing commas
+                        .filter(Boolean);
+                        
+                    resources[resourceName].connections.push(...dependencies);
+                }
+                
+                // Look for resource references in properties
                 for (const otherResource of Object.keys(resources)) {
-                    if (resourceName !== otherResource && resourceBlock.includes(otherResource)) {
-                        resources[resourceName].connections.push(otherResource);
+                    if (resourceName !== otherResource) {
+                        // Check for common reference patterns
+                        const referencePatterns = [
+                            `${otherResource}.id`,
+                            `${otherResource}.name`,
+                            `${otherResource}.properties`
+                        ];
+                        
+                        if (referencePatterns.some(pattern => resourceBlock.includes(pattern))) {
+                            resources[resourceName].connections.push(otherResource);
+                        }
                     }
                 }
                 
@@ -85,10 +107,10 @@ export async function generateMermaidFromBicep(templatePath: string): Promise<st
             }
         }
         
-        return generateMermaidDiagram(resources);
+        return { diagram: generateMermaidDiagram(resources) };
     } catch (error) {
         console.error(`Error generating Mermaid diagram: ${error}`);
-        return createDefaultMermaidDiagram();
+        return { diagram: createDefaultMermaidDiagram() };
     }
 }
 
@@ -128,8 +150,13 @@ export function generateMermaidDiagram(resources: { [key: string]: ResourceDefin
     
     // Add connections
     for (const [resourceName, resource] of Object.entries(resources)) {
-        for (const connection of resource.connections) {
-            mermaid += `    ${resourceName} --> ${connection}\n`;
+        const connections = resource.connections || [];
+        for (const connection of connections) {
+            // Remove any array brackets and quotes from connection names
+            const cleanConnection = connection.replace(/[\[\]'"]/g, '').trim();
+            if (resources[cleanConnection]) {
+                mermaid += `    ${resourceName} --> ${cleanConnection}\n`;
+            }
         }
     }
     

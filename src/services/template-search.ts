@@ -29,6 +29,15 @@ export async function listTemplates(): Promise<TemplateListResult> {
         const result = execSync('azd template list', { encoding: 'utf8' });
         return { templates: result };
     } catch (error) {
+        if (error instanceof Error) {
+            // Convert any command not found error to the installation message
+            if (error.message.includes('command not found') || error.message.includes('not recognized')) {
+                return {
+                    templates: '',
+                    error: 'Azure Developer CLI (azd) is not installed. Please install it first.'
+                };
+            }
+        }
         return { 
             templates: '',
             error: `Failed to list templates: ${error}` 
