@@ -47,10 +47,13 @@ jest.mock('yaml', () => ({
   stringify: jest.fn().mockReturnValue('mocked-yaml-content')
 }));
 
-// Mock utils/validation
+// Mock utils/validation module
 jest.mock('../utils/validation', () => ({
   pathExists: jest.fn().mockResolvedValue(true),
-  validateReadmeContent: jest.fn().mockReturnValue([])
+  getCurrentWorkspace: jest.fn().mockReturnValue('/mock/workspace'),
+  validateReadmeContent: jest.fn().mockResolvedValue(['Missing required section: Features', 'Missing required section: Architecture']),
+  validateDevContainer: jest.fn().mockResolvedValue([]),
+  validateGitHubWorkflows: jest.fn().mockResolvedValue([])
 }));
 
 // Mock process.cwd()
@@ -299,25 +302,19 @@ describe('validateTemplate', () => {
     // Mock azd installed
     (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
     
-    // Mock file existence
-    (fs.existsSync as jest.Mock).mockImplementation(path => true);
-
-    // Missing required sections in README
+    // Mock file existence and REQUIRED_FILES check
+    (fs.existsSync as jest.Mock).mockImplementation(path => {
+      return path.toString().endsWith('README.md') || path === '/test/path';
+    });
+    
+    // Mock README content
     (fs.promises.readFile as jest.Mock).mockImplementation((path) => {
       if (path.toString().endsWith('README.md')) {
-        return Promise.resolve(`
-          # Test Template
-          
-          ## Some Section Not Required
-        `);
+        return Promise.resolve(`# Test Template\n## Missing Sections`);
       }
       return Promise.resolve('');
     });
-
-    // Mock validateReadmeContent to return some issues
-    const validation = require('../utils/validation');
-    (validation.validateReadmeContent as jest.Mock).mockReturnValue(['Missing required section: Architecture Diagram']);
-    
+        
     const result = await validateTemplate('/test/path');
     
     expect(result).toBeDefined();

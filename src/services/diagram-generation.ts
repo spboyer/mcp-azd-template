@@ -116,8 +116,10 @@ export async function generateMermaidFromBicep(templatePath: string): Promise<{ 
 
 export function generateMermaidDiagram(resources: { [key: string]: ResourceDefinition }): string {
     let mermaid = 'graph TD\n';
+      // Add nodes and track connections
+    const connections = new Set<string>();
     
-    // Add nodes
+    // First pass - add all nodes
     for (const [resourceName, resource] of Object.entries(resources)) {
         const shortType = resource.type.split('/').pop() || resource.type;
         const displayName = resource.properties?.name || resourceName;
@@ -146,17 +148,31 @@ export function generateMermaidDiagram(resources: { [key: string]: ResourceDefin
         }
         
         mermaid += `    ${resourceName}["${icon} ${displayName}\\n${shortType}${serviceTag}"]\n`;
-    }
-    
-    // Add connections
+    }    // Add all connections
     for (const [resourceName, resource] of Object.entries(resources)) {
-        const connections = resource.connections || [];
-        for (const connection of connections) {
-            // Remove any array brackets and quotes from connection names
-            const cleanConnection = connection.replace(/[\[\]'"]/g, '').trim();
-            if (resources[cleanConnection]) {
-                mermaid += `    ${resourceName} --> ${cleanConnection}\n`;
+        // Check for both explicit and implicit connections
+        const checkConnection = (targetName: string) => {
+            if (resourceName !== targetName && !connections.has(`${resourceName}-->${targetName}`)) {
+                const resourceStr = JSON.stringify(resource);
+                if (
+                    (resource.connections && resource.connections.includes(targetName)) ||
+                    resourceStr.includes(`${targetName}.id`) ||
+                    resourceStr.includes(`${targetName}.name`) ||
+                    resourceStr.includes(`${targetName}.properties`) ||
+                    (resource.type.includes('Microsoft.Web/sites') && targetName === 'appServicePlan') ||
+                    (resourceStr.includes('serverFarmId') && targetName === 'appServicePlan')
+                ) {
+                    mermaid += `    ${resourceName} --> ${targetName}\n`;
+                    connections.add(`${resourceName}-->${targetName}`);
+                    return true;
+                }
             }
+            return false;
+        };
+
+        // Check connections for each resource
+        for (const otherName of Object.keys(resources)) {
+            checkConnection(otherName);
         }
     }
     

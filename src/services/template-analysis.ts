@@ -134,56 +134,88 @@ export interface TemplateAnalysisResult {
     error?: string;
 }
 
-export async function analyzeTemplate(templatePath?: string): Promise<TemplateAnalysisResult> {
-    const workspacePathResolved = templatePath || process.cwd();
+export async function analyzeTemplate(templatePath?: string): Promise<TemplateAnalysisResult> {    const workspacePathResolved = templatePath || process.cwd();
     
-    // Check if directory exists
-    if (!fs.existsSync(workspacePathResolved)) {
+    // Check if directory exists and has azure.yaml
+    const azureYamlPath = path.join(workspacePathResolved, 'azure.yaml');
+    if (!fs.existsSync(workspacePathResolved) || !fs.existsSync(azureYamlPath)) {
         return {
-            error: 'Invalid template directory path',
+            error: 'Invalid template directory or missing azure.yaml file',
             hasInfra: false,
             hasApp: false,
             configFile: '',
             recommendations: []
         };
-    }
-
-    try {
+    }    try {
         const result: TemplateAnalysisResult = {
             hasInfra: false,
             hasApp: false,
             configFile: '',
             recommendations: []
-        };
-
-        // Check for azure.yaml
-        const azureYamlPath = path.join(workspacePathResolved, 'azure.yaml');
-        if (!fs.existsSync(azureYamlPath)) {
+        };        // Read azure.yaml first
+        try {
+            const yamlContent = fs.readFileSync(azureYamlPath, 'utf8');
+            result.configFile = yamlContent;
+        } catch (error) {
             return {
-                error: 'Invalid template directory or missing azure.yaml file',
+                error: 'Failed to analyze template: Could not read azure.yaml file',
                 hasInfra: false,
                 hasApp: false,
                 configFile: '',
                 recommendations: []
             };
+        }// Check for infrastructure and application code
+        try {
+            const entries = fs.readdirSync(workspacePathResolved);
+            
+            // Look for infra/main.bicep or infra/main.tf
+            for (const entry of entries) {
+                if (entry === 'infra') {
+                    try {
+                        const infraFiles = fs.readdirSync(path.join(workspacePathResolved, 'infra'));
+                        result.hasInfra = infraFiles.some(file => 
+                            file === 'main.bicep' || file === 'main.tf'
+                        );
+                        break;
+                    } catch {
+                        result.hasInfra = false;
+                    }
+                }
+                if (entry.includes('main.bicep') || entry.includes('main.tf')) {
+                    result.hasInfra = true;
+                    break;
+                }
+            }
+
+            if (!result.hasInfra) {
+                result.recommendations.push('Add infrastructure as code (Bicep or Terraform) in the infra/ directory');
+            }
+
+            // Look for src/index.ts or other app files
+            result.hasApp = entries.some(entry => {
+                if (entry === 'src') {
+                    try {
+                        const srcFiles = fs.readdirSync(path.join(workspacePathResolved, 'src'));
+                        return srcFiles.some(file => file === 'index.ts' || file === 'index.js');
+                    } catch {
+                        return false;
+                    }
+                }
+                return entry.includes('index.ts') || entry.includes('index.js');
+            });
+
+            if (!result.hasApp) {
+                result.recommendations.push('Add application code in the src/ directory');
+            }
+        } catch (error) {
+            return {
+                error: 'Failed to analyze template: Error reading directory structure',
+                hasInfra: false,
+                hasApp: false,
+                configFile: result.configFile,
+                recommendations: []
+            };
         }
-
-        result.configFile = fs.readFileSync(azureYamlPath, 'utf8');
-
-        // Check for infrastructure
-        result.hasInfra = fs.existsSync(path.join(workspacePathResolved, 'infra'));
-        if (!result.hasInfra) {
-            result.recommendations.push('Add infrastructure as code (Bicep or Terraform) in the infra/ directory');
-        }
-
-        // Check for application code
-        const entries = fs.readdirSync(workspacePathResolved);
-        result.hasApp = entries.some(entry => 
-            entry === 'src' || 
-            fs.existsSync(path.join(workspacePathResolved, entry, 'package.json')) ||
-            fs.existsSync(path.join(workspacePathResolved, entry, 'requirements.txt')) ||
-            fs.existsSync(path.join(workspacePathResolved, entry, '*.csproj'))
-        );
 
         if (!result.hasApp) {
             result.recommendations.push('Add application code in the src/ directory or service-specific folders');
