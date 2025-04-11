@@ -32,12 +32,14 @@ export async function validateReadmeContent(content: string): Promise<string[]> 
     const issues: string[] = [];
     const contentLower = content.toLowerCase();
     
+    // Check for required sections
     for (const section of requiredSections) {
         if (!contentLower.includes(`## ${section.toLowerCase()}`)) {
             issues.push(`Missing required section: ${section}`);
         }
     }
 
+    // Force return of issues even if no other validation is done
     return issues;
 }
 

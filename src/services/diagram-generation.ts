@@ -191,34 +191,25 @@ export function createDefaultMermaidDiagram(): string {
 
 export async function insertMermaidDiagram(readmePath: string, diagram: string): Promise<boolean> {
     try {
-        let content = await fs.promises.readFile(readmePath, 'utf8');
+        const readmeContent = await fs.promises.readFile(readmePath, 'utf8');
         
-        // Look for an Architecture section to place the diagram in
-        const architectureSectionRegex = /(##\s+Architecture\s+Diagram\s*\n)/i;
-        if (architectureSectionRegex.test(content)) {
-            // Insert after the heading
-            content = content.replace(
-                architectureSectionRegex,
-                `$1\n\`\`\`mermaid\n${diagram}\n\`\`\`\n\n_This diagram was automatically generated from your infrastructure code._\n\n`
-            );
-        } else {
-            // If no Architecture section, add it before the Requirements section
-            const requirementsSectionRegex = /(##\s+Requirements\s*\n)/i;
-            if (requirementsSectionRegex.test(content)) {
-                content = content.replace(
-                    requirementsSectionRegex,
-                    `## Architecture Diagram\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n\n_This diagram was automatically generated from your infrastructure code._\n\n$1`
-                );
-            } else {
-                // If no Requirements section, add it at the end of the file
-                content += `\n## Architecture Diagram\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n\n_This diagram was automatically generated from your infrastructure code._\n`;
+        // Only insert if there isn't already a diagram
+        if (!await checkForMermaidDiagram(readmePath)) {
+            // Find the Architecture section
+            const architectureMatch = readmeContent.match(/##\s*Architecture/i);
+            if (architectureMatch) {
+                const position = architectureMatch.index! + architectureMatch[0].length;
+                const newContent = readmeContent.slice(0, position) +
+                    '\n\n```mermaid\n' + diagram + '\n```\n' +
+                    readmeContent.slice(position);
+                
+                await fs.promises.writeFile(readmePath, newContent, 'utf8');
+                return true;
             }
         }
-        
-        await fs.promises.writeFile(readmePath, content, 'utf8');
-        return true;
+        return false;
     } catch (error) {
-        console.error(`Error inserting Mermaid diagram: ${error}`);
+        console.error('Error inserting Mermaid diagram:', error);
         return false;
     }
 }

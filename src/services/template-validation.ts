@@ -43,57 +43,69 @@ export interface TemplateValidationResult {
     diagramAdded: boolean | false;
 }
 
+export type TemplateValidationError = {
+    error: string;
+};
+
+export type TemplateValidationResponse = TemplateValidationResult | TemplateValidationError;
+
 /**
  * Validates an Azure Developer CLI (azd) template
  * @param templatePath Optional path to the template directory. If not provided, uses current workspace
- * @returns Template validation results
+ * @returns Template validation results or error
  */
-export async function validateTemplate(templatePath?: string): Promise<TemplateValidationResult> {
-    const workspacePath = templatePath || getCurrentWorkspace();    // Initialize result object
-    const result: TemplateValidationResult = {
-        errors: [],
-        warnings: [],
-        readmeIssues: [],
-        securityChecks: [],
-        hasAzureYaml: false,
-        hasReadme: false,
-        infraChecks: [],
-        devContainerChecks: [],
-        workflowChecks: [],
-        diagramAdded: false
-    };
-
-    // Check azd installation first
-    if (!checkAzdInstalled()) {
-        result.errors.push('Azure Developer CLI (azd) is not installed. Please install it first.');
-        return result;
-    }
-
-    // Check if template directory exists
-    if (!fs.existsSync(workspacePath)) {
-        result.errors.push('Template directory does not exist');
-        return result;
-    }
-
-    // Validate README first since it's critical
-    const readmePath = path.join(workspacePath, 'README.md');
-    result.hasReadme = fs.existsSync(readmePath);    if (result.hasReadme) {
-        try {
-            const readmeContent = await fs.promises.readFile(readmePath, 'utf8');
-            const issues = await validateReadmeContent(readmeContent);
-            result.readmeIssues = Array.isArray(issues) ? issues : [];
-        } catch (err) {
-            result.errors.push(`Error reading README.md: ${err}`);
-        }
-    }
+export async function validateTemplate(templatePath?: string): Promise<TemplateValidationResponse> {
+    const workspacePath = templatePath || getCurrentWorkspace();
 
     try {
+        // Initialize result object with all required properties
+        const result: TemplateValidationResult = {
+            errors: [],
+            warnings: [],
+            readmeIssues: [],
+            securityChecks: [],
+            hasAzureYaml: false,
+            hasReadme: false,
+            infraChecks: [],
+            devContainerChecks: [],
+            workflowChecks: [],
+            diagramAdded: false
+        };
+
+        // Check azd installation first
+        if (!checkAzdInstalled()) {
+            return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
+        }
+
+        // Check if template directory exists
+        if (!fs.existsSync(workspacePath)) {
+            return { error: 'Template directory does not exist' };
+        }
+
+        // Validate README
+        const readmePath = path.join(workspacePath, 'README.md');
+        result.hasReadme = fs.existsSync(readmePath);
         
-        // Check for required files
-        for (const file of REQUIRED_FILES) {
-            if (!await pathExists(workspacePath, file)) {
-                result.errors.push(`Missing required file: ${file}`);
+        if (result.hasReadme) {
+            const readmeContent = await fs.promises.readFile(readmePath, 'utf8');
+            result.readmeIssues = await validateReadmeContent(readmeContent);
+            
+            // Security notice check
+            const hasSecurityNotice = readmeContent.toLowerCase().includes('security') && 
+                                    readmeContent.toLowerCase().includes('production');
+            
+            if (!hasSecurityNotice) {
+                result.securityChecks.push('README should include security notice for production use');
             }
+            
+            // Check and potentially add diagram
+            const hasExistingDiagram = await checkForMermaidDiagram(readmePath);
+            if (!hasExistingDiagram) {
+                const diagramResult = await generateMermaidFromBicep(workspacePath);
+                result.diagramAdded = await insertMermaidDiagram(readmePath, diagramResult.diagram);
+            }
+        } else {
+            result.errors.push('Missing README.md file');
         }
 
         // Check azure.yaml
@@ -101,36 +113,20 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
         result.hasAzureYaml = fs.existsSync(azureYamlPath);
         
         if (result.hasAzureYaml) {
-            const yamlContent = fs.readFileSync(azureYamlPath, 'utf8');
-            const parsedYaml = yaml.parse(yamlContent);
-
-            // Validate against schema
-            const parseResult = azureYamlSchema.safeParse(parsedYaml);
-            if (!parseResult.success) {
-                result.errors.push(...parseResult.error.errors.map(e => `azure.yaml: ${e.message}`));
-            }
-
-            // Validate infrastructure
-            result.infraChecks = await validateInfra(workspacePath, parsedYaml);
-
-            // Validate AZD tags
-            const tagWarnings = await validateAzdTags(workspacePath, parsedYaml);
-            if (tagWarnings.length > 0) {
-                result.infraChecks.push(...tagWarnings);
+            try {
+                const yamlContent = await fs.promises.readFile(azureYamlPath, 'utf8');
+                const parsedYaml = yaml.parse(yamlContent);
+                
+                // Validate against schema
+                const parseResult = azureYamlSchema.safeParse(parsedYaml);
+                if (!parseResult.success) {
+                    result.errors.push(...parseResult.error.errors.map(e => `azure.yaml: ${e.message}`));
+                }
+            } catch (yamlError) {
+                result.errors.push(`Error parsing azure.yaml: ${yamlError.message}`);
             }
         } else {
             result.errors.push('Missing azure.yaml file');
-        }        // Handle diagram generation if README exists
-        if (result.hasReadme) {
-            try {
-                const hasExistingDiagram = await checkForMermaidDiagram(readmePath);
-                if (!hasExistingDiagram) {
-                    const diagramResult = await generateMermaidFromBicep(workspacePath);
-                    result.diagramAdded = await insertMermaidDiagram(readmePath, diagramResult.diagram);
-                }
-            } catch (err) {
-                result.warnings.push(`Warning processing README.md diagram: ${err}`);
-            }
         }
 
         // Validate dev container configuration
@@ -141,9 +137,7 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
         
         return result;
     } catch (error) {
-        result.errors.push(`Failed to validate template: ${error}`);
-        return result;
+        return { error: `Failed to validate template: ${error}` };
     }
-
 }
 

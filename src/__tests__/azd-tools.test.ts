@@ -302,24 +302,36 @@ describe('validateTemplate', () => {
     // Mock azd installed
     (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
     
-    // Mock file existence and REQUIRED_FILES check
+    // Mock file existence for all required files
     (fs.existsSync as jest.Mock).mockImplementation(path => {
-      return path.toString().endsWith('README.md') || path === '/test/path';
+      return path.toString().endsWith('README.md') || 
+             path.toString().endsWith('azure.yaml') ||
+             path === '/test/path';
     });
     
-    // Mock README content
-    (fs.promises.readFile as jest.Mock).mockImplementation((path) => {
+    // Mock README content without required sections
+    (fs.promises.readFile as jest.Mock).mockImplementation(async (path) => {
       if (path.toString().endsWith('README.md')) {
-        return Promise.resolve(`# Test Template\n## Missing Sections`);
+        return '# Test Template\n## Some Section';
       }
-      return Promise.resolve('');
+      if (path.toString().endsWith('azure.yaml')) {
+        return 'name: test\nservices: {}\n';
+      }
+      return '';
     });
+
+    // Ensure validateReadmeContent returns expected issues
+    const validation = require('../utils/validation');
+    validation.validateReadmeContent.mockResolvedValue(['Missing required section: Features', 'Missing required section: Architecture']);
         
     const result = await validateTemplate('/test/path');
     
     expect(result).toBeDefined();
-    expect(result.readmeIssues).toBeDefined();
-    expect(result.readmeIssues.length).toBeGreaterThan(0);
+    expect('error' in result).toBe(false);
+    if (!('error' in result)) {
+      expect(result.readmeIssues).toBeDefined();
+      expect(result.readmeIssues.length).toBeGreaterThan(0);
+    }
   });
   test('should validate template with security notice present', async () => {
     // Mock azd installed
