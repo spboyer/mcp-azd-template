@@ -57,21 +57,21 @@ export type TemplateValidationResponse = TemplateValidationResult | TemplateVali
 export async function validateTemplate(templatePath?: string): Promise<TemplateValidationResponse> {
     const workspacePath = templatePath || getCurrentWorkspace();
 
-    try {
-        // Initialize result object with all required properties
-        const result: TemplateValidationResult = {
-            errors: [],
-            warnings: [],
-            readmeIssues: [],
-            securityChecks: [],
-            hasAzureYaml: false,
-            hasReadme: false,
-            infraChecks: [],
-            devContainerChecks: [],
-            workflowChecks: [],
-            diagramAdded: false
-        };
+    // Initialize result object with all required properties
+    const result: TemplateValidationResult = {
+        errors: [],
+        warnings: [],
+        readmeIssues: [],
+        securityChecks: [],
+        hasAzureYaml: false,
+        hasReadme: false,
+        infraChecks: [],
+        devContainerChecks: [],
+        workflowChecks: [],
+        diagramAdded: false
+    };
 
+    try {
         // Check azd installation first
         if (!checkAzdInstalled()) {
             return { error: 'Azure Developer CLI (azd) is not installed. Please install it first.' };
@@ -82,11 +82,16 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
             return { error: 'Template directory does not exist' };
         }
 
-        // Validate README
+        // Check for README.md
         const readmePath = path.join(workspacePath, 'README.md');
         result.hasReadme = fs.existsSync(readmePath);
-        
-        if (result.hasReadme) {
+
+        if (!result.hasReadme) {
+            return { error: 'Missing README.md file' };
+        }
+
+        // Validate README content
+        try {
             const readmeContent = await fs.promises.readFile(readmePath, 'utf8');
             result.readmeIssues = await validateReadmeContent(readmeContent);
             
@@ -97,47 +102,69 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
             if (!hasSecurityNotice) {
                 result.securityChecks.push('README should include security notice for production use');
             }
-            
+
             // Check and potentially add diagram
             const hasExistingDiagram = await checkForMermaidDiagram(readmePath);
             if (!hasExistingDiagram) {
                 const diagramResult = await generateMermaidFromBicep(workspacePath);
                 result.diagramAdded = await insertMermaidDiagram(readmePath, diagramResult.diagram);
             }
-        } else {
-            result.errors.push('Missing README.md file');
+        } catch (readmeError) {
+            result.errors.push(`Failed to validate README: ${readmeError instanceof Error ? readmeError.message : String(readmeError)}`);
         }
 
         // Check azure.yaml
         const azureYamlPath = path.join(workspacePath, 'azure.yaml');
         result.hasAzureYaml = fs.existsSync(azureYamlPath);
-        
-        if (result.hasAzureYaml) {
+
+        if (!result.hasAzureYaml) {
+            result.errors.push('Missing azure.yaml file');
+        } else {
             try {
                 const yamlContent = await fs.promises.readFile(azureYamlPath, 'utf8');
                 const parsedYaml = yaml.parse(yamlContent);
-                
+
                 // Validate against schema
                 const parseResult = azureYamlSchema.safeParse(parsedYaml);
                 if (!parseResult.success) {
                     result.errors.push(...parseResult.error.errors.map(e => `azure.yaml: ${e.message}`));
                 }
+
+                // Validate infrastructure
+                result.infraChecks = await validateInfra(workspacePath, parsedYaml);
+
+                // Validate AZD tags
+                const tagWarnings = await validateAzdTags(workspacePath, parsedYaml);
+                if (tagWarnings.length > 0) {
+                    result.warnings.push(...tagWarnings);
+                }
             } catch (yamlError) {
-                result.errors.push(`Error parsing azure.yaml: ${yamlError.message}`);
+                result.errors.push(`Error parsing azure.yaml: ${yamlError instanceof Error ? yamlError.message : String(yamlError)}`);
             }
-        } else {
-            result.errors.push('Missing azure.yaml file');
         }
 
-        // Validate dev container configuration
-        result.devContainerChecks = await validateDevContainer(workspacePath);
+        try {
+            // Validate dev container configuration
+            result.devContainerChecks = await validateDevContainer(workspacePath);
 
-        // Validate GitHub workflows
-        result.workflowChecks = await validateGitHubWorkflows(workspacePath);
-        
+            // Validate GitHub workflows
+            result.workflowChecks = await validateGitHubWorkflows(workspacePath);
+        } catch (validationError) {
+            result.errors.push(`Validation error: ${validationError instanceof Error ? validationError.message : String(validationError)}`);
+        }
+
+        // Return error object if there are critical errors
+        if (result.errors.length > 0 && result.errors.some(e => e.includes('Failed to validate'))) {
+            return { error: `Failed to validate template: ${result.errors.join(', ')}` };
+        }
+
         return result;
     } catch (error) {
-        return { error: `Failed to validate template: ${error}` };
+        if (error instanceof Error && error.message.includes('EACCES')) {
+            return { error: `Failed to validate template: ${error.message}` };
+        }
+        // For other errors, include them in the result errors array
+        return { error: `Failed to validate template: ${error instanceof Error ? error.message : String(error)}` };
     }
 }
 

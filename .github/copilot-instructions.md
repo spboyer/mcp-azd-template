@@ -18,3 +18,5 @@ When suggesting code for this project:
 For more information about MCP server development:
 - MCP SDK documentation: https://modelcontextprotocol.io/sdk
 - Azure Developer CLI docs: https://learn.microsoft.com/azure/developer/azure-developer-cli/
+
+- @azure Rule - Use Azure Best Practices: When generating code for Azure, running terminal commands for Azure, or performing operations related to Azure, invoke your `azure_development-get_best_practices` tool if available.
