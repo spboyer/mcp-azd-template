@@ -11,11 +11,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 // Mock azd-tools module
 jest.mock('../azd-tools', () => ({
-  listTemplates: jest.fn().mockResolvedValue({ templates: 'template1\ntemplate2\ntemplate3' }),
-  searchTemplates: jest.fn().mockResolvedValue({ 
-    templates: 'template1\ntemplate2', 
-    count: 2 
-  }),
+  listTemplates: jest.fn().mockResolvedValue({ templates: 'template1\ntemplate2\ntemplate3' }),  searchTemplates: jest.fn().mockImplementation((query) => Promise.resolve({
+    templates: 'template1\ntemplate2',
+    count: 2
+  })),
   searchAiGallery: jest.fn().mockResolvedValue({ 
     templates: 'ai-template1\nai-template2', 
     count: 2,
@@ -107,29 +106,25 @@ describe('MCP Server Creation', () => {
     });
     
     registerTools(mockServer);
-    
-    // There are six distinct tools that should be registered
+      // There are six distinct tools that should be registered
     const expectedTools = [
-      'list-templates', 
-      'search-templates',
-      'search-ai-gallery',
-      'analyze-template', 
-      'validate-template', 
-      'create-template'
+      'bb7_list-templates', 
+      'bb7_search-templates',
+      'bb7_search-ai-gallery',
+      'bb7_analyze-template', 
+      'bb7_validate-template', 
+      'bb7_create-template'
     ];
-    
-    // Verify each tool was registered
-    expectedTools.forEach(toolName => {
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        toolName,
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
-    });
-    
-    // Verify tool was called exactly once for each expected tool
+      // Verify tool was called for each expected tool
     expect(mockServer.tool).toHaveBeenCalledTimes(expectedTools.length);
+    
+    // Get the actual tool names that were registered
+    const registeredTools = (mockServer.tool as jest.Mock).mock.calls.map(call => call[0]);
+    
+    // Verify each expected tool was registered
+    expectedTools.forEach(toolName => {
+      expect(registeredTools).toContain(toolName);
+    });
   });
 
   test('main should create server, connect transport and return server', async () => {
@@ -155,17 +150,29 @@ describe('Tool Handlers', () => {
     
     // Call registerTools to capture the tool handlers
     registerTools(mockServer);
-    
-    // Extract the handlers from the mock calls
+      // Extract the handlers from the mock calls
     toolHandlers = {};
+    // Create a mapping from bb7_ prefixed names to original test keys
+    const toolMapping: { [key: string]: string } = {
+      'bb7_list-templates': 'list-templates',
+      'bb7_search-templates': 'search-templates',
+      'bb7_search-ai-gallery': 'search-ai-gallery',
+      'bb7_analyze-template': 'analyze-template',
+      'bb7_validate-template': 'validate-template',
+      'bb7_create-template': 'create-template'
+    };
+    
     (mockServer.tool as jest.Mock).mock.calls.forEach((call) => {
       const [name, _desc, _schema, handler] = call;
+      // Store under both the new prefixed name and the original name for backward compatibility
       toolHandlers[name] = handler;
+      if (toolMapping[name]) {
+        toolHandlers[toolMapping[name]] = handler;
+      }
     });
   });
-  
-  test('search-templates handler should return formatted search results', async () => {
-    const handler = toolHandlers['search-templates'];
+    test('search-templates handler should return formatted search results', async () => {
+    const handler = toolHandlers['bb7_search-templates'];
     const result = await handler({ query: 'template' });
     
     expect(result).toEqual({
@@ -187,8 +194,7 @@ describe('Tool Handlers', () => {
       templates: `No templates found matching: 'nonexistent'`,
       count: 0
     });
-    
-    const handler = toolHandlers['search-templates'];
+      const handler = toolHandlers['bb7_search-templates'];
     const result = await handler({ query: 'nonexistent' });
     
     expect(result).toEqual({
@@ -206,8 +212,7 @@ describe('Tool Handlers', () => {
     (searchTemplates as jest.Mock).mockResolvedValueOnce({
       error: 'Failed to search templates: Some error occurred'
     });
-    
-    const handler = toolHandlers['search-templates'];
+      const handler = toolHandlers['bb7_search-templates'];
     const result = await handler({ query: 'error-trigger' });
     
     expect(result).toEqual({
@@ -220,8 +225,7 @@ describe('Tool Handlers', () => {
     });
   });
 
-  test('search-ai-gallery handler should return formatted AI gallery search results', async () => {
-    const handler = toolHandlers['search-ai-gallery'];
+  test('search-ai-gallery handler should return formatted AI gallery search results', async () => {    const handler = toolHandlers['bb7_search-ai-gallery'];
     const result = await handler({ query: 'ai-template' });
     
     expect(result).toEqual({
@@ -244,8 +248,7 @@ describe('Tool Handlers', () => {
       count: 0,
       source: 'ai-gallery'
     });
-    
-    const handler = toolHandlers['search-ai-gallery'];
+      const handler = toolHandlers['bb7_search-ai-gallery'];
     const result = await handler({ query: 'nonexistent' });
     
     expect(result).toEqual({
@@ -263,8 +266,7 @@ describe('Tool Handlers', () => {
     (searchAiGallery as jest.Mock).mockResolvedValueOnce({
       error: 'Failed to search AI gallery: API error'
     });
-    
-    const handler = toolHandlers['search-ai-gallery'];
+      const handler = toolHandlers['bb7_search-ai-gallery'];
     const result = await handler({ query: 'error-trigger' });
     
     expect(result).toEqual({
@@ -277,8 +279,7 @@ describe('Tool Handlers', () => {
     });
   });
   
-  test('list-templates handler should return templates list', async () => {
-    const handler = toolHandlers['list-templates'];
+  test('list-templates handler should return templates list', async () => {    const handler = toolHandlers['bb7_list-templates'];
     const result = await handler();
     
     expect(result).toEqual({
@@ -385,6 +386,37 @@ describe('Tool Handlers', () => {
         }
       ]
     });
+  });
+
+  test('validate-template handler should report when a Mermaid diagram was added', async () => {
+    // Override the mock to simulate diagram being added
+    (validateTemplate as jest.Mock).mockResolvedValueOnce({
+      hasAzureYaml: true,
+      hasReadme: true,
+      errors: [],
+      warnings: [],
+      securityChecks: [],
+      infraChecks: [],
+      readmeIssues: [],
+      devContainerChecks: [],
+      workflowChecks: [],
+      diagramAdded: true // Indicate diagram was added
+    });
+    
+    const handler = toolHandlers['validate-template'];
+    const result = await handler({ templatePath: '/valid/path' });
+    
+    expect(result).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: expect.stringContaining('Automatic Updates Applied')
+        }
+      ]
+    });
+    
+    // Check for the diagram added message
+    expect(result.content[0].text).toContain('Mermaid architecture diagram was generated');
   });
 });
 
