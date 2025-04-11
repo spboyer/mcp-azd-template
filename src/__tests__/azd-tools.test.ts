@@ -371,8 +371,11 @@ describe('validateTemplate', () => {
     const result = await validateTemplate('/test/path');
     
     expect(result).toBeDefined();
-    expect(result.securityChecks).toBeDefined();
-    expect(result.securityChecks.length).toBe(0);
+    expect('error' in result).toBe(false);
+    if (!('error' in result)) {
+      expect(result.securityChecks).toBeDefined();
+      expect(result.securityChecks.length).toBe(0);
+    }
   });  test('should validate template schema with errors', async () => {
     // Mock azd installed
     (execSync as jest.Mock).mockReturnValue('azd 1.0.0');
@@ -397,9 +400,12 @@ describe('validateTemplate', () => {
     const result = await validateTemplate('/test/path');
     
     expect(result).toBeDefined();
-    expect(result.errors).toBeDefined();
-    expect(result.warnings).toBeDefined();
-    expect(result.errors.length + result.warnings.length).toBeGreaterThan(0);
+    expect('error' in result).toBe(false);
+    if (!('error' in result)) {
+      expect(result.errors).toBeDefined();
+      expect(result.warnings).toBeDefined();
+      expect(result.errors.length + result.warnings.length).toBeGreaterThan(0);
+    }
   });
 
   test('should use current workspace if no path provided', async () => {

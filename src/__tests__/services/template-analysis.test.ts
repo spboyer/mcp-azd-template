@@ -7,7 +7,7 @@ jest.mock('fs', () => ({
     promises: {
         readFile: jest.fn(),
         readdir: jest.fn(),
-        access: jest.fn(() => Promise.resolve())
+        access: jest.fn(() => Promise.resolve(undefined))
     }
 }));
 
@@ -15,7 +15,7 @@ describe('Template Analysis', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         // Set default mock for fs.promises.access to simulate files existing
-        (fs.promises.access as jest.Mock).mockImplementation(() => Promise.resolve());
+        (fs.promises.access as jest.Mock).mockImplementation(() => Promise.resolve(undefined));
     });
 
     describe('validateAzdTags', () => {
@@ -34,7 +34,7 @@ describe('Template Analysis', () => {
                 }
             `);
 
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
             (fs.promises.readdir as jest.Mock).mockResolvedValue(['main.bicep']);
 
             const warnings = await validateAzdTags('/test/path', yaml);
@@ -62,7 +62,7 @@ describe('Template Analysis', () => {
             `);
 
             // Mock infrastructure files exist
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateAzdTags('/test/path', yaml);
             expect(warnings.length).toBe(0);
@@ -81,7 +81,7 @@ describe('Template Analysis', () => {
             (fs.promises.readFile as jest.Mock).mockRejectedValue(new Error('File read error'));
             
             // Mock infrastructure folder exists
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateAzdTags('/test/path', yaml);
             expect(warnings).toContainEqual(expect.stringMatching(/Error reading Bicep files/));
@@ -129,9 +129,7 @@ describe('Template Analysis', () => {
             `);
 
             // Mock infrastructure folder exists
-            (fs.promises.access as jest.Mock).mockImplementation((path) => {
-                return Promise.resolve();
-            });
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateInfra('/test/path', yaml);
             expect(warnings.length).toBeGreaterThan(0);
@@ -157,7 +155,7 @@ describe('Template Analysis', () => {
             `);
 
             // Mock infrastructure folder exists
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateInfra('/test/path', yaml);
             expect(warnings).toContainEqual(expect.stringContaining('Container Apps requires Container Registry'));
@@ -183,7 +181,7 @@ describe('Template Analysis', () => {
             `);
 
             // Mock infrastructure folder exists
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateInfra('/test/path', yaml);
             expect(warnings).toContainEqual(expect.stringContaining('Function Apps require Storage account'));
@@ -208,7 +206,7 @@ describe('Template Analysis', () => {
             `);
 
             // Mock infrastructure folder exists
-            (fs.promises.access as jest.Mock).mockResolvedValue();
+            (fs.promises.access as jest.Mock).mockResolvedValue(undefined);
 
             const warnings = await validateInfra('/test/path', yaml);
             expect(warnings).toContainEqual(expect.stringContaining('Add Application Insights for monitoring'));

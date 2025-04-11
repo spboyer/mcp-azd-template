@@ -112,7 +112,7 @@ describe('Template Creation', () => {
     });
 
     test('createDevContainerConfig should generate devcontainer config', () => {
-      const devContainerConfig = fileGenerators.createDevContainerConfig('test-project', 'typescript', 'web');
+      const devContainerConfig = fileGenerators.createDevContainerConfig('test-project', 'typescript');
       expect(devContainerConfig).toBeTruthy();
     });
 

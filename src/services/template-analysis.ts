@@ -143,7 +143,7 @@ export async function validateAzdTags(templatePath: string, parsedYaml: any): Pr
                         }
                     }
                 } catch (error) {
-                    warnings.push(`Error reading Bicep files: ${error.message}`);
+                    warnings.push(`Error reading Bicep files: ${error instanceof Error ? error.message : String(error)}`);
                 }
             }
         }
