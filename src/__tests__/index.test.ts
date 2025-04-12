@@ -108,12 +108,12 @@ describe('MCP Server Creation', () => {
     registerTools(mockServer);
       // There are six distinct tools that should be registered
     const expectedTools = [
-      'bb7_list-templates', 
-      'bb7_search-templates',
-      'bb7_search-ai-gallery',
-      'bb7_analyze-template', 
-      'bb7_validate-template', 
-      'bb7_create-template'
+      'list-templates', 
+      'search-templates',
+      'search-ai-gallery',
+      'analyze-template', 
+      'validate-template', 
+      'create-template'
     ];
       // Verify tool was called for each expected tool
     expect(mockServer.tool).toHaveBeenCalledTimes(expectedTools.length);
@@ -152,14 +152,14 @@ describe('Tool Handlers', () => {
     registerTools(mockServer);
       // Extract the handlers from the mock calls
     toolHandlers = {};
-    // Create a mapping from bb7_ prefixed names to original test keys
+    // Create a mapping from  prefixed names to original test keys
     const toolMapping: { [key: string]: string } = {
-      'bb7_list-templates': 'list-templates',
-      'bb7_search-templates': 'search-templates',
-      'bb7_search-ai-gallery': 'search-ai-gallery',
-      'bb7_analyze-template': 'analyze-template',
-      'bb7_validate-template': 'validate-template',
-      'bb7_create-template': 'create-template'
+      'list-templates': 'list-templates',
+      'search-templates': 'search-templates',
+      'search-ai-gallery': 'search-ai-gallery',
+      'analyze-template': 'analyze-template',
+      'validate-template': 'validate-template',
+      'create-template': 'create-template'
     };
     
     (mockServer.tool as jest.Mock).mock.calls.forEach((call) => {
@@ -172,7 +172,7 @@ describe('Tool Handlers', () => {
     });
   });
     test('search-templates handler should return formatted search results', async () => {
-    const handler = toolHandlers['bb7_search-templates'];
+    const handler = toolHandlers['search-templates'];
     const result = await handler({ query: 'template' });
     
     expect(result).toEqual({
@@ -194,7 +194,7 @@ describe('Tool Handlers', () => {
       templates: `No templates found matching: 'nonexistent'`,
       count: 0
     });
-      const handler = toolHandlers['bb7_search-templates'];
+      const handler = toolHandlers['search-templates'];
     const result = await handler({ query: 'nonexistent' });
     
     expect(result).toEqual({
@@ -212,7 +212,7 @@ describe('Tool Handlers', () => {
     (searchTemplates as jest.Mock).mockResolvedValueOnce({
       error: 'Failed to search templates: Some error occurred'
     });
-      const handler = toolHandlers['bb7_search-templates'];
+      const handler = toolHandlers['search-templates'];
     const result = await handler({ query: 'error-trigger' });
     
     expect(result).toEqual({
@@ -225,7 +225,7 @@ describe('Tool Handlers', () => {
     });
   });
 
-  test('search-ai-gallery handler should return formatted AI gallery search results', async () => {    const handler = toolHandlers['bb7_search-ai-gallery'];
+  test('search-ai-gallery handler should return formatted AI gallery search results', async () => {    const handler = toolHandlers['search-ai-gallery'];
     const result = await handler({ query: 'ai-template' });
     
     expect(result).toEqual({
@@ -248,7 +248,7 @@ describe('Tool Handlers', () => {
       count: 0,
       source: 'ai-gallery'
     });
-      const handler = toolHandlers['bb7_search-ai-gallery'];
+      const handler = toolHandlers['search-ai-gallery'];
     const result = await handler({ query: 'nonexistent' });
     
     expect(result).toEqual({
@@ -266,7 +266,7 @@ describe('Tool Handlers', () => {
     (searchAiGallery as jest.Mock).mockResolvedValueOnce({
       error: 'Failed to search AI gallery: API error'
     });
-      const handler = toolHandlers['bb7_search-ai-gallery'];
+      const handler = toolHandlers['search-ai-gallery'];
     const result = await handler({ query: 'error-trigger' });
     
     expect(result).toEqual({
@@ -279,7 +279,7 @@ describe('Tool Handlers', () => {
     });
   });
   
-  test('list-templates handler should return templates list', async () => {    const handler = toolHandlers['bb7_list-templates'];
+  test('list-templates handler should return templates list', async () => {    const handler = toolHandlers['list-templates'];
     const result = await handler();
     
     expect(result).toEqual({

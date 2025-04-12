@@ -47,7 +47,7 @@ export function formatValidationSection(title: string, items: string[], icon: st
 export function registerTools(server: McpServer): void {
     // Update list templates handler to handle error properly
     server.tool(
-        "bb7_list-templates",
+        "list-templates",
         "List all available Azure Developer CLI (azd) templates",
         {},
         async () => {
@@ -63,7 +63,7 @@ export function registerTools(server: McpServer): void {
     
     // Update search templates handler to handle new return type
     server.tool(
-        "bb7_search-templates",
+        "search-templates",
         "Search for Azure Developer CLI (azd) templates by keyword",
         {
             query: z.string().describe("The query to search for templates with")
@@ -89,7 +89,7 @@ export function registerTools(server: McpServer): void {
     );
 
     server.tool(
-        "bb7_search-ai-gallery",
+        "search-ai-gallery",
         "Search for templates from the Azure AI gallery by keyword",
         {
             query: z.string().describe('The query to search for templates in the AI gallery')
@@ -117,7 +117,7 @@ export function registerTools(server: McpServer): void {
     );
 
     server.tool(
-        "bb7_analyze-template",
+        "analyze-template",
         "Analyze an Azure Developer CLI (azd) template directory and provide insights",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
@@ -157,7 +157,7 @@ ${result.recommendations.length > 0
             };
         }
     );    server.tool(
-        "bb7_validate-template",
+        "validate-template",
         "Validate an Azure Developer CLI (azd) template directory for compliance with best practices",
         {
             templatePath: z.string().describe('Path to the azd template directory').optional()
@@ -253,7 +253,7 @@ ${totalIssues === 0
             };
         }
     );    server.tool(
-        "bb7_create-template",
+        "create-template",
         "Create a new Azure Developer CLI (azd) template with best practices",
         {
             name: z.string().min(2).describe('Name of the template'),
