@@ -1,4 +1,7 @@
-# MCP AZD Template
+# MCP AZD Template [![npm version](https://img.shields.io/npm/v/mcp-azd-template.svg?style=flat)](https://www.npmjs.com/package/mcp-azd-template)
+
+[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_MCP_AZD_Template-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=MCP%20AZD%20Template&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-azd-template%40latest%22%5D%7D) [![Install with NPX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_MCP_AZD_Template-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=MCP%20AZD%20Template&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-azd-template%40latest%22%5D%7D&quality=insiders)
+
 
 An MCP server that provides tools for working with Azure Developer CLI (azd) templates. This package helps with template validation, analysis, and creation while following best practices.
 
