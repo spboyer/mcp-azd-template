@@ -80,14 +80,40 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
         // Check if template directory exists
         if (!fs.existsSync(workspacePath)) {
             return { error: 'Template directory does not exist' };
-        }
-
-        // Check for README.md
-        const readmePath = path.join(workspacePath, 'README.md');
+        }        // Check for README.md (case-insensitive)
+        let readmePath = path.join(workspacePath, 'README.md');
         result.hasReadme = fs.existsSync(readmePath);
 
+        // If uppercase README.md doesn't exist, check for lowercase readme.md
         if (!result.hasReadme) {
-            return { error: 'Missing README.md file' };
+            const lowercaseReadmePath = path.join(workspacePath, 'readme.md');
+            if (fs.existsSync(lowercaseReadmePath)) {
+                // Create symlink or copy for consistent behavior
+                try {
+                    // On Unix-like systems (Linux/macOS), create a symlink
+                    if (process.platform !== 'win32') {
+                        // Only create symlink if it doesn't already exist
+                        if (!fs.existsSync(readmePath)) {
+                            fs.symlinkSync(lowercaseReadmePath, readmePath);
+                        }
+                    } else {
+                        // On Windows, make a copy since symlinks often require admin privileges
+                        fs.copyFileSync(lowercaseReadmePath, readmePath);
+                    }
+                    
+                    // Update flag since we now have a valid README.md
+                    result.hasReadme = true;
+                    readmePath = lowercaseReadmePath;
+                } catch (error) {
+                    console.warn(`Warning: Could not create link for README.md: ${error instanceof Error ? error.message : String(error)}`);
+                    readmePath = lowercaseReadmePath;
+                    result.hasReadme = true;
+                }
+            }
+        }
+
+        if (!result.hasReadme) {
+            return { error: 'Missing README.md file (checked both uppercase README.md and lowercase readme.md)' };
         }
 
         // Validate README content
