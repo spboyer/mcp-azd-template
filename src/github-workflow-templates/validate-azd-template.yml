@@ -1,0 +1,94 @@
+name: Validate Azure Developer CLI Template
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Azure Developer CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install mcp-azd-template
+        run: npm install -g mcp-azd-template      # Run validation and capture the output for potential issue creation
+      - name: Validate AZD Template and Capture Output
+        id: validate
+        run: |
+          # Run validation and capture output to a file
+          mcp-azd-template validate-action "${{ github.workspace }}" > validation_output.txt 2>&1
+          
+          # Check if the validation failed
+          if [ $? -ne 0 ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            cat validation_output.txt
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+        # Pass the GitHub token to allow issue creation if enabled
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            # Create issue with detailed validation results when validation fails
+      - name: Create Issue with Validation Results
+        if: ${{ steps.validate.outputs.status == 'failed' && github.event_name == 'push' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            // Read validation output file
+            let validationOutput;
+            try {
+              validationOutput = fs.readFileSync('validation_output.txt', 'utf8');
+            } catch (err) {
+              validationOutput = 'Failed to read validation output: ' + err.message;
+            }
+            
+            // Extract critical issues and warnings for better formatting
+            const criticalIssuesMatch = validationOutput.match(/### ❌ Critical Issues\n([\s\S]*?)(?=\n###|$)/);
+            const warningsMatch = validationOutput.match(/### ⚠️ Warnings and Recommendations\n([\s\S]*?)(?=\n###|$)/);
+            
+            const criticalIssues = criticalIssuesMatch ? criticalIssuesMatch[1].trim() : '';
+            const warnings = warningsMatch ? warningsMatch[1].trim() : '';
+            
+            // Build issue body with proper escaping for YAML
+            let issueBody = `# Template Validation Failed\n\n`;
+            issueBody += `Template validation found issues in commit ${context.sha.substring(0, 7)}.\n\n`;
+            issueBody += `## Validation Results\n\n`;
+            
+            if (criticalIssues) {
+              issueBody += `### Critical Issues\n${criticalIssues}\n\n`;
+            }
+            
+            if (warnings) {
+              issueBody += `### Warnings and Recommendations\n${warnings}\n\n`;
+            }
+            
+            issueBody += `<details>\n<summary>Full Validation Output</summary>\n\n\`\`\`\n${validationOutput}\n\`\`\`\n\n</details>\n\n`;
+            issueBody += `Please address these issues before merging. For more information, see the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+            
+            // Create issue with formatted validation results
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'AZD Template Validation Failed',
+              body: issueBody
+            });
+            });

@@ -316,6 +316,70 @@ For more details, check the README.md in your new template directory.`
     );
 }
 
+// Added function to run template validation for GitHub Actions
+export async function runValidationAction(templatePath?: string): Promise<boolean> {
+    console.log('🔍 Running Azure Developer CLI (azd) template validation...');
+    
+    try {
+        const result = await validateTemplate(templatePath);
+        
+        if ('error' in result) {
+            console.error(`❌ Validation failed: ${result.error}`);
+            return false;
+        }
+
+        const totalIssues = result.errors.length + 
+            result.readmeIssues.length + 
+            result.infraChecks.length + 
+            result.securityChecks.length + 
+            result.devContainerChecks.length + 
+            result.workflowChecks.length;
+
+        // Print validation results in GitHub Actions compatible format
+        console.log('\n## Template Validation Results\n');
+        
+        // Print critical errors if any
+        if (result.errors.length > 0) {
+            console.log('### ❌ Critical Issues');
+            result.errors.forEach(error => {
+                console.log(`::error::${error}`);
+                console.log(`- ${error}`);
+            });
+        }
+        
+        // Print warnings if any
+        const warnings = [
+            ...result.readmeIssues, 
+            ...result.infraChecks, 
+            ...result.securityChecks,
+            ...result.devContainerChecks,
+            ...result.workflowChecks,
+            ...result.warnings
+        ];
+        
+        if (warnings.length > 0) {
+            console.log('\n### ⚠️ Warnings and Recommendations');
+            warnings.forEach(warning => {
+                console.log(`::warning::${warning}`);
+                console.log(`- ${warning}`);
+            });
+        }
+        
+        // Print summary
+        console.log('\n### Summary');
+        if (totalIssues === 0) {
+            console.log('✅ Template validation passed all checks successfully!');
+            return true;
+        } else {
+            console.log(`❌ Template validation failed with ${result.errors.length} critical issues and ${totalIssues - result.errors.length} warnings.`);
+            return result.errors.length === 0; // Only fail on critical errors
+        }
+    } catch (error) {
+        console.error(`❌ Validation error: ${error instanceof Error ? error.message : String(error)}`);
+        return false;
+    }
+}
+
 // Initialize and start the server
 export async function main() {
     const server = createServer();

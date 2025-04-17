@@ -99,6 +99,119 @@ When using this MCP server with AI assistants like GitHub Copilot, you can use t
 Search for Java Spring Boot templates in the Azure AI gallery
 ```
 
+## GitHub Actions Integration
+
+You can integrate MCP AZD Template with GitHub Actions to automatically validate your Azure Developer CLI (azd) templates on pull requests or commits. This helps ensure your templates always comply with best practices before they're merged.
+
+### Setting up the GitHub Action
+
+1. Create a `.github/workflows` directory in your repository if it doesn't already exist
+2. Add a new file named `validate-template.yml` with the following content:
+
+```yaml
+name: Validate Azure Developer CLI Template
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Azure Developer CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install mcp-azd-template
+        run: npm install -g mcp-azd-template
+
+      - name: Validate AZD Template
+        run: mcp-azd-template validate-action "${{ github.workspace }}"
+```
+
+### Advanced Configuration
+
+#### Creating Detailed Issues Automatically
+
+The workflow includes automatic creation of GitHub issues with detailed validation results when validation fails. The created issue will contain:
+
+- Critical issues found in the template
+- Warnings and recommendations for improvement
+- The full validation output in a collapsible section
+- Links to the specific commit and workflow run
+
+This feature makes it easy for teams to track and address template issues without needing to dig through workflow logs:
+
+```yaml
+# This step captures the validation output
+- name: Run Validation and Capture Output
+  id: validate
+  run: |
+    # Run validation and capture output to a file
+    mcp-azd-template validate-action "${{ github.workspace }}" > validation_output.txt 2>&1
+    
+    # Check if the validation failed and create a summary file for the issue
+    if [ $? -ne 0 ]; then
+      echo "::set-output name=status::failed"
+      cat validation_output.txt
+    else
+      echo "::set-output name=status::success"
+    fi
+  continue-on-error: true
+
+# This step creates the detailed issue with validation results
+- name: Create Issue with Validation Results
+  if: ${{ steps.validate.outputs.status == 'failed' && github.event_name == 'push' }}
+  uses: actions/github-script@v6
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    script: |
+      const fs = require('fs');
+      
+      // Read validation output file
+      let validationOutput = fs.readFileSync('validation_output.txt', 'utf8');
+      
+      // Extract critical issues and warnings sections
+      const criticalIssuesMatch = validationOutput.match(/### ❌ Critical Issues\n([\s\S]*?)(?=\n###|$)/);
+      const warningsMatch = validationOutput.match(/### ⚠️ Warnings and Recommendations\n([\s\S]*?)(?=\n###|$)/);
+      
+      // Format the issue body with validation results
+      await github.rest.issues.create({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        title: 'AZD Template Validation Failed',
+        body: `# Template Validation Failed\n\nDetails of issues found in commit ${context.sha.substring(0, 7)}...`
+      });
+```
+
+### CLI Usage for CI/CD
+
+You can also run template validation directly in any CI/CD environment:
+
+```bash
+# Install globally
+npm install -g mcp-azd-template
+
+# Run validation (exits with code 1 if validation fails)
+mcp-azd-template validate-action /path/to/template
+```
+
+## Sample Prompts
+
 ```
 Find Next.js starter templates from both the AI gallery and azd CLI
 ```
