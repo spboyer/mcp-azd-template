@@ -210,6 +210,8 @@ npm install -g mcp-azd-template
 mcp-azd-template validate-action /path/to/template
 ```
 
+## Sample Prompts
+
 ```
 Find Next.js starter templates from both the AI gallery and azd CLI
 ```
