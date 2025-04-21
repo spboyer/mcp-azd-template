@@ -9,6 +9,7 @@ export * from './services/template-analysis';
 export * from './services/template-validation';
 export * from './services/diagram-generation';
 export * from './services/template-creation';
+export * from './services/azure-yaml-validation';
 
 // Re-export schemas, types and utilities
 export * from './schemas/validation';

@@ -8,6 +8,7 @@ import {
   searchAiGallery
 } from '../azd-tools';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { validateAzureYaml } from '../services/azure-yaml-validation';
 
 // Mock azd-tools module
 jest.mock('../azd-tools', () => ({
@@ -55,17 +56,13 @@ jest.mock('../azd-tools', () => ({
   })
 }));
 
-// Mock the McpServer class following MCP server implementation practices
-jest.mock("@modelcontextprotocol/sdk/server/mcp.js", () => {
-  const mockTool = jest.fn();
-  const mockServer = {
-    tool: mockTool,
-    connect: jest.fn().mockResolvedValue(undefined),
-  };
-  return {
-    McpServer: jest.fn(() => mockServer),
-  };
-});
+// Mock MCP server
+jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => ({
+    McpServer: jest.fn().mockImplementation(() => ({
+        tool: jest.fn(),
+        connect: jest.fn().mockResolvedValue(undefined)
+    }))
+}));
 
 // Mock the StdioServerTransport
 jest.mock("@modelcontextprotocol/sdk/server/stdio.js", () => {
@@ -104,16 +101,17 @@ describe('MCP Server Creation', () => {
       version: '1.0.0',
       capabilities: { resources: {}, tools: {} },
     });
+      registerTools(mockServer);
     
-    registerTools(mockServer);
-      // There are six distinct tools that should be registered
+    // There are six distinct tools that should be registered    
     const expectedTools = [
-      'list-templates', 
-      'search-templates',
-      'search-ai-gallery',
-      'analyze-template', 
-      'validate-template', 
-      'create-template'
+        'list-templates', 
+        'search-templates',
+        'search-ai-gallery',
+        'analyze-template', 
+        'validate-template',
+        'validate-azure-yaml',
+        'create-template'
     ];
       // Verify tool was called for each expected tool
     expect(mockServer.tool).toHaveBeenCalledTimes(expectedTools.length);
@@ -417,6 +415,31 @@ describe('Tool Handlers', () => {
     
     // Check for the diagram added message
     expect(result.content[0].text).toContain('Mermaid architecture diagram was generated');
+  });
+
+  test('validate-azure-yaml tool should validate yaml files', async () => {
+    const mockServer = new McpServer({
+      name: 'test',
+      version: '1.0.0',
+      capabilities: { resources: {}, tools: {} },
+    });
+    
+    registerTools(mockServer);
+    
+    // Get the validate-azure-yaml handler
+    const validateAzureYamlTool = (mockServer.tool as jest.Mock).mock.calls.find(
+      call => call[0] === 'validate-azure-yaml'
+    );
+    expect(validateAzureYamlTool).toBeDefined();
+    
+    // Test the handler
+    const handler = validateAzureYamlTool[3];
+    const result = await handler({ filePath: '/test/azure.yaml' }, {});
+    
+    expect(result).toBeDefined();
+    expect(result.content).toBeDefined();
+    expect(Array.isArray(result.content)).toBe(true);
+    expect(result.content[0].type).toBe('text');
   });
 });
 
