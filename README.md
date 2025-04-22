@@ -186,15 +186,15 @@ This feature makes it easy for teams to track and address template issues withou
       let validationOutput = fs.readFileSync('validation_output.txt', 'utf8');
       
       // Extract critical issues and warnings sections
-      const criticalIssuesMatch = validationOutput.match(/### ❌ Critical Issues\n([\s\S]*?)(?=\n###|$)/);
-      const warningsMatch = validationOutput.match(/### ⚠️ Warnings and Recommendations\n([\s\S]*?)(?=\n###|$)/);
+      const criticalIssuesMatch = validationOutput.match(/### ❌ Critical Issues\\n([\\s\\S]*?)(?=\\n###|$)/);
+      const warningsMatch = validationOutput.match(/### ⚠️ Warnings and Recommendations\\n([\\s\\S]*?)(?=\\n###|$)/);
       
       // Format the issue body with validation results
       await github.rest.issues.create({
         owner: context.repo.owner,
         repo: context.repo.repo,
         title: 'AZD Template Validation Failed',
-        body: `# Template Validation Failed\n\nDetails of issues found in commit ${context.sha.substring(0, 7)}...`
+        body: `# Template Validation Failed\\n\\nDetails of issues found in commit ${context.sha.substring(0, 7)}...`
       });
 ```
 
@@ -324,6 +324,27 @@ Creates a new Azure Developer CLI template with best practices built-in:
 - Supports multiple languages (TypeScript, Python, Java, .NET)
 - Various architectures (web, API, function app, container)
 - Includes necessary configuration files
+
+### Azure YAML Validation
+Validates an azure.yaml file against the known schema:
+- Checks for required fields and correct structure
+- Validates service configurations
+- Provides best practice recommendations
+- Works with standalone files or within templates
+
+Example usage:
+```typescript
+// Validate a specific azure.yaml file
+await validateAzureYaml('/path/to/azure.yaml');
+
+// Validate azure.yaml in current directory
+await validateAzureYaml();
+```
+
+Or use it through MCP server:
+```
+Can you validate my azure.yaml file?
+```
 
 ## Requirements
 

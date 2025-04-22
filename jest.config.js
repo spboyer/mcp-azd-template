@@ -1,8 +1,8 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
+  preset: 'ts-jest',  testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  cache: false,
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.{ts,js}', '!**/node_modules/**', '!**/dist/**'],
   coverageDirectory: 'coverage',

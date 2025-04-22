@@ -39,6 +39,10 @@ export const azureYamlSchema = z.object({
 });
 
 // Tool schemas
+export const validateAzureYamlSchema = z.object({
+    filePath: z.string().optional().describe('Path to the azure.yaml file to validate. If not provided, looks for azure.yaml in current directory'),
+});
+
 export const listTemplatesSchema = z.object({});
 
 export const searchTemplatesSchema = z.object({
