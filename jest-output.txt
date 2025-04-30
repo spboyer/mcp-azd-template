@@ -1,0 +1,47 @@
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be removed in v30.0.0. Please use "isolatedModules: true" in C:/github/mcp/mcp-azd-template/tsconfig.json instead, see https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+PASS src/__tests__/minimal.test.ts
+  Diagram Generation Module
+    ΓêÜ createDefaultMermaidDiagram should return expected diagram (3 ms)
+    ΓêÜ checkForMermaidDiagram should return true when mermaid diagram exists (1 ms)
+    ΓêÜ checkForMermaidDiagram should return false when mermaid diagram does not exist
+
+--------------------------------|---------|----------|---------|---------|--------------------------------------
+File                            | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                    
+--------------------------------|---------|----------|---------|---------|--------------------------------------
+All files                       |    3.11 |     0.57 |    1.88 |    3.17 |                                      
+ src                            |       0 |        0 |       0 |       0 |                                      
+  azd-tools.ts                  |       0 |      100 |       0 |       0 | 7-30                                 
+  cli.ts                        |       0 |        0 |       0 |       0 | 3-21                                 
+  index.ts                      |       0 |        0 |       0 |       0 | 1-332                                
+ src/constants                  |       0 |      100 |     100 |       0 |                                      
+  config.ts                     |       0 |      100 |     100 |       0 | 2-30                                 
+ src/schemas                    |       0 |      100 |     100 |       0 |                                      
+  validation.ts                 |       0 |      100 |     100 |       0 | 1-56                                 
+ src/services                   |     3.6 |     0.91 |    3.84 |    3.65 |                                      
+  diagram-generation.ts         |    9.03 |     2.66 |   16.66 |    9.09 | 13-14,19-116,121-182,196-230,236-307 
+  mermaid-renderer.ts           |     8.1 |        0 |       0 |     8.1 | 14-26,41-89                          
+  template-analysis.ts          |       0 |        0 |       0 |       0 | 1-155                                
+  template-creation.ts          |       0 |        0 |       0 |       0 | 6-692                                
+  template-search.ts            |       0 |        0 |       0 |       0 | 1-118                                
+  template-validation.ts        |       0 |        0 |       0 |       0 | 1-181                                
+ src/services/template-creation |       0 |        0 |       0 |       0 |                                      
+  architecture-utils.ts         |       0 |        0 |       0 |       0 | 8-56                                 
+  bicep-generators.ts           |       0 |        0 |       0 |       0 | 8-157                                
+  file-generators.ts            |       0 |        0 |       0 |       0 | 4-295                                
+  index.ts                      |       0 |        0 |       0 |       0 | 4-53                                 
+  language-utils.ts             |       0 |        0 |       0 |       0 | 4-103                                
+  template-structures.ts        |       0 |      100 |     100 |       0 | 4-25                                 
+ src/utils                      |    12.5 |        0 |       0 |   12.96 |                                      
+  validation.ts                 |    12.5 |        0 |       0 |   12.96 | 8,15-17,24-43,50-79,86-118           
+--------------------------------|---------|----------|---------|---------|--------------------------------------
+Jest: "global" coverage threshold for statements (50%) not met: 3.11%
+Jest: "global" coverage threshold for branches (40%) not met: 0.57%
+Jest: "global" coverage threshold for lines (50%) not met: 3.17%
+Jest: "global" coverage threshold for functions (50%) not met: 1.88%
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        3.423 s
+Ran all test suites matching /src\\__tests__\\minimal.test.ts/i.

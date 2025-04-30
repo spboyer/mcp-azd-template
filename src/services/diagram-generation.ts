@@ -1,7 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { ResourceDefinition } from '../types';
 import { pathExists } from '../utils/validation';
+import { renderMermaidToPng } from './mermaid-renderer';
 
 export async function checkForMermaidDiagram(readmePath: string): Promise<boolean> {
     try {
@@ -105,9 +107,10 @@ export async function generateMermaidFromBicep(templatePath: string): Promise<{ 
                     resources[resourceName].properties.service = serviceTagMatch[1];
                 }
             }
-        }
-        
-        return { diagram: generateMermaidDiagram(resources) };
+        }        // Generate the diagram
+        const diagramContent = generateMermaidDiagram(resources);
+        // We'll let the insertMermaidDiagram function handle the PNG generation
+        return { diagram: diagramContent };
     } catch (error) {
         console.error(`Error generating Mermaid diagram: ${error}`);
         return { diagram: createDefaultMermaidDiagram() };
@@ -199,9 +202,23 @@ export async function insertMermaidDiagram(readmePath: string, diagram: string):
             const architectureMatch = readmeContent.match(/##\s*Architecture/i);
             if (architectureMatch) {
                 const position = architectureMatch.index! + architectureMatch[0].length;
-                const newContent = readmeContent.slice(0, position) +
-                    '\n\n```mermaid\n' + diagram + '\n```\n' +
-                    readmeContent.slice(position);
+                
+                console.log('Generating PNG image from mermaid diagram...');
+                // Try to generate PNG image using our installed packages
+                const pngFileName = await generatePngFromMermaid(diagram, readmePath);
+                
+                let diagramContent;
+                if (pngFileName) {
+                    console.log(`Successfully created PNG diagram: ${pngFileName}`);
+                    // Add both PNG image reference and collapsible mermaid source for easy editing
+                    diagramContent = `\n\n![Architecture Diagram](images/${pngFileName})\n\n<details>\n<summary>Mermaid diagram source (click to expand)</summary>\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n</details>\n`;
+                } else {
+                    console.log('Falling back to mermaid markup only');
+                    // Fall back to just mermaid markup if PNG generation fails
+                    diagramContent = `\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n`;
+                }
+                
+                const newContent = readmeContent.slice(0, position) + diagramContent + readmeContent.slice(position);
                 
                 await fs.promises.writeFile(readmePath, newContent, 'utf8');
                 return true;
@@ -211,5 +228,83 @@ export async function insertMermaidDiagram(readmePath: string, diagram: string):
     } catch (error) {
         console.error('Error inserting Mermaid diagram:', error);
         return false;
+    }
+}
+
+export async function generatePngFromMermaid(diagram: string, outputPath: string): Promise<string | null> {
+    // Create a timestamp for temporary directories
+    const timestamp = Date.now();
+    const tempDir = path.join(path.dirname(outputPath), '.temp', `mermaid-${timestamp}`);
+    
+    try {
+        // Create images directory if it doesn't exist
+        const imagesDir = path.join(path.dirname(outputPath), 'images');
+        if (!fs.existsSync(imagesDir)) {
+            await fs.promises.mkdir(imagesDir, { recursive: true });
+        }
+        
+        // Use our dedicated mermaid renderer to generate the PNG
+        console.log('Generating PNG image from mermaid diagram...');
+        const result = await renderMermaidToPng(diagram, imagesDir);
+        
+        // Clean up any temporary files that might have been created
+        try {
+            await cleanupTempFiles(path.dirname(outputPath), timestamp);
+        } catch (cleanupError) {
+            console.warn('Warning: Failed to clean up temporary files:', cleanupError);
+            // Continue even if cleanup fails
+        }
+        
+        return result;
+    } catch (error) {
+        console.error('Error generating PNG from Mermaid diagram:', error);
+        // Attempt cleanup even if generation failed
+        try {
+            await cleanupTempFiles(path.dirname(outputPath), timestamp);
+        } catch (cleanupError) {
+            // Ignore cleanup errors
+        }
+        return null;
+    }
+}
+
+/**
+ * Helper function to clean up temporary files created during diagram generation
+ */
+async function cleanupTempFiles(basePath: string, timestamp: number): Promise<void> {
+    const tempDir = path.join(basePath, '.temp', `mermaid-${timestamp}`);
+    if (fs.existsSync(tempDir)) {
+        try {
+            // Remove all files in the temp directory
+            try {
+                const files = await fs.promises.readdir(tempDir);
+                if (files && Array.isArray(files)) {
+                    for (const file of files) {
+                        try {
+                            await fs.promises.unlink(path.join(tempDir, file));
+                        } catch (e) {
+                            // Silently continue if a single file fails to delete
+                            console.debug(`Could not delete file ${file}: ${e instanceof Error ? e.message : String(e)}`);
+                        }
+                    }
+                }
+            } catch (readError) {
+                console.warn(`Could not read directory ${tempDir}: ${readError instanceof Error ? readError.message : String(readError)}`);
+            }
+            
+            // Remove the directory itself
+            try {
+                // Use fs.promises.rm if available (Node.js >= 14.14.0)
+                if (typeof fs.promises.rm === 'function') {
+                    await fs.promises.rm(tempDir, { recursive: true, force: true });
+                } else {
+                    await fs.promises.rmdir(tempDir);
+                }
+            } catch (rmError) {
+                console.warn(`Could not remove directory ${tempDir}: ${rmError instanceof Error ? rmError.message : String(rmError)}`);
+            }
+        } catch (error) {
+            console.warn(`Failed to clean up temp directory ${tempDir}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 }

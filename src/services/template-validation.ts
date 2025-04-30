@@ -41,6 +41,7 @@ export interface TemplateValidationResult {
     devContainerChecks: string[];
     workflowChecks: string[];
     diagramAdded: boolean | false;
+    pngDiagramAdded?: boolean;  // Added to track if a PNG diagram was generated
 }
 
 export type TemplateValidationError = {
@@ -55,9 +56,7 @@ export type TemplateValidationResponse = TemplateValidationResult | TemplateVali
  * @returns Template validation results or error
  */
 export async function validateTemplate(templatePath?: string): Promise<TemplateValidationResponse> {
-    const workspacePath = templatePath || getCurrentWorkspace();
-
-    // Initialize result object with all required properties
+    const workspacePath = templatePath || getCurrentWorkspace();    // Initialize result object with all required properties
     const result: TemplateValidationResult = {
         errors: [],
         warnings: [],
@@ -68,7 +67,8 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
         infraChecks: [],
         devContainerChecks: [],
         workflowChecks: [],
-        diagramAdded: false
+        diagramAdded: false,
+        pngDiagramAdded: false
     };
 
     try {
@@ -94,20 +94,34 @@ export async function validateTemplate(templatePath?: string): Promise<TemplateV
         try {
             const readmeContent = await fs.promises.readFile(readmePath, 'utf8');
             result.readmeIssues = await validateReadmeContent(readmeContent);
-            
-            // Security notice check
+              // Security notice check
             const hasSecurityNotice = readmeContent.toLowerCase().includes('security') && 
                                     readmeContent.toLowerCase().includes('production');
             
             if (!hasSecurityNotice) {
                 result.securityChecks.push('README should include security notice for production use');
             }
-
+            
             // Check and potentially add diagram
             const hasExistingDiagram = await checkForMermaidDiagram(readmePath);
             if (!hasExistingDiagram) {
                 const diagramResult = await generateMermaidFromBicep(workspacePath);
                 result.diagramAdded = await insertMermaidDiagram(readmePath, diagramResult.diagram);
+                  // Check for PNG in the images directory after insertion
+                const imagesDir = path.join(path.dirname(readmePath), 'images');
+                if (fs.existsSync(imagesDir)) {
+                    try {
+                        const files = await fs.promises.readdir(imagesDir);
+                        if (files && Array.isArray(files)) {
+                            result.pngDiagramAdded = files.some(file => file.startsWith('architecture-diagram-') && file.endsWith('.png'));
+                        } else {
+                            result.pngDiagramAdded = false;
+                        }
+                    } catch (err) {
+                        console.warn('Failed to check for PNG diagram:', err);
+                        result.pngDiagramAdded = false;
+                    }
+                }
             }
         } catch (readmeError) {
             result.errors.push(`Failed to validate README: ${readmeError instanceof Error ? readmeError.message : String(readmeError)}`);

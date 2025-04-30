@@ -89,14 +89,33 @@ const myServer = new McpServer({ /* your config */ });
 registerTools(myServer);
 ```
 
+## Features
+
+### Architecture Diagram Generation
+
+The MCP AZD Template server can automatically generate architecture diagrams for your Azure templates. It can:
+
+1. Parse Bicep/ARM templates to detect Azure resources and their relationships
+2. Generate a mermaid.js diagram representation of the architecture
+3. Create a PNG image from the mermaid markup and add it to your README.md
+4. Include the original mermaid markup in a collapsible section for easy editing
+
+This feature requires the `@mermaid-js/mermaid-cli` package, which will be installed as a dependency.
+
 ## Example Prompts
 
 When using this MCP server with AI assistants like GitHub Copilot, you can use the following example prompts:
 
 ### Template Search
 
-```
+```text
 Search for Java Spring Boot templates in the Azure AI gallery
+```
+
+### Generate Architecture Diagram
+
+```text
+Generate an architecture diagram for my template
 ```
 
 ```

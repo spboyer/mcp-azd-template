@@ -1,6 +1,6 @@
 {
   "name": "mcp-azd-template",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "MCP server for Azure Developer CLI template operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,19 +9,24 @@
   },
   "files": [
     "dist"
-  ],
-  "scripts": {
+  ],  "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc -w",
     "watch": "tsc -w & node dist/index.js",
     "clean": "rimraf dist",
+    "cleanup-temp": "node scripts/cleanup-temp-files.js",
+    "cleanup-all": "node scripts/cleanup-all.js",
+    "cleanup": "npm run cleanup-all",
     "prebuild": "npm run clean",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:mermaid": "jest diagram-generation.test.ts",
+    "test:diagram": "jest src/__tests__/diagram-coverage.test.ts --collectCoverageFrom=src/services/diagram-generation.ts --coverage",
+    "pretest:coverage": "npm run cleanup-temp"
   },
   "keywords": [
     "azd",
@@ -48,11 +53,12 @@
     "rimraf": "^5.0.1",
     "ts-jest": "^29.3.1",
     "typescript": "^5.8.2",
-    "zod": "^3.24.2"
-  },
+    "zod": "^3.24.2"  },
   "dependencies": {
     "js-yaml": "^4.1.0",
-    "yaml": "^2.7.0"
+    "yaml": "^2.7.0",
+    "@mermaid-js/mermaid-cli": "^10.9.0",
+    "puppeteer-core": "^23.3.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",

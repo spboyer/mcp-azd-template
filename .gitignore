@@ -49,6 +49,21 @@ lerna-debug.log*
 Thumbs.db
 
 # Temporary files
+.temp/
+**/mermaid-*/
+*.mmd
+test-output.txt
+function-test-output.txt
+diagram-coverage.txt
+
+# Generated diagrams (except base templates)
+test-diagram/images/architecture-diagram-*.png
+test-diagram/images/architecture-diagram-*.mmd
+test-output/
+
+# Keep template files
+!diagram.png
+!test-diagram.mmd
 tmp/
 temp/
 

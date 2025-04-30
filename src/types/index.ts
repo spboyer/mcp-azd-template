@@ -18,7 +18,8 @@ export interface TemplateValidationResult {
      devContainerChecks: string[];
      workflowChecks: string[];
      diagramAdded?: boolean;
-     valid?: boolean; // Adding missing valid property
+     pngDiagramAdded?: boolean; // Track if PNG diagram was generated
+     valid?: boolean;
 }
 
 export interface ReadmeValidationResult {

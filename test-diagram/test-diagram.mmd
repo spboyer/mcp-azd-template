@@ -1,0 +1,11 @@
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Service 1]
+    B --> D[Service 2]
+    C --> E[(Database)]
+    D --> E
+    style A fill:#f9d,stroke:#333,stroke-width:2px
+    style B fill:#adf,stroke:#333,stroke-width:2px
+    style C fill:#bfc,stroke:#333,stroke-width:2px
+    style D fill:#bfc,stroke:#333,stroke-width:2px
+    style E fill:#ffd,stroke:#333,stroke-width:2px
